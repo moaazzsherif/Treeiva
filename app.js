@@ -243,17 +243,9 @@ function switchTab(tabId, element) {
   }
 }
 
-// 2FA login simulator
+// 2FA login simulator (Directly logs in for 1-click smooth UX)
 function goTo2FA() {
-  const emailInput = document.getElementById('login-email');
-  if (emailInput && !emailInput.value.trim()) {
-    emailInput.value = 'ahmed@delta-farms.com';
-  }
-  document.querySelector('.login-step-1').style.display = 'none';
-  const regStep = document.querySelector('.login-register');
-  if (regStep) regStep.style.display = 'none';
-  document.querySelector('.login-step-2').style.display = 'block';
-  showToast('Verification Sent', '2FA security code dispatched.', 'info');
+  enterDashboard();
 }
 
 function resetLogin() {
@@ -1765,8 +1757,27 @@ function registerNewSaaSClient() {
   const loginEmailInput = document.getElementById('login-email');
   if (loginEmailInput) loginEmailInput.value = email;
   
-  showToast('جارٍ تسجيل الأرض', `تسجيل أرض [${fieldName}] بمساحة ${areaFeddan} فدان للمحصول ${cropFocus}...`, 'info');
-  
+  // Add to client-side PRESET_ACCOUNTS so it works offline and on GitHub Pages
+  const newAccountObj = {
+    name: companyName,
+    company: `${companyName} للإنتاج الزراعي`,
+    field: {
+      id: `field-${Date.now()}`,
+      name: fieldName,
+      crop: cropFocus,
+      crop_ar: cropFocus,
+      soil_type: soilType,
+      location: location,
+      moisture: 38.0,
+      area_feddan: parseFloat(areaFeddan) || 10.0,
+      area_ha: Math.round(((parseFloat(areaFeddan) || 10.0) / 2.38) * 10) / 10,
+      coordinates: [[30.829, 30.640], [30.832, 30.642]]
+    }
+  };
+
+  PRESET_ACCOUNTS[email] = newAccountObj;
+  applyUserLandData(newAccountObj);
+
   fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1783,51 +1794,19 @@ function registerNewSaaSClient() {
   })
     .then(res => res.json())
     .then(data => {
-      if (data.success) {
-        loggedInUserName = companyName;
-        
-        const greetingEl = document.getElementById('copilot-initial-greeting');
-        if (greetingEl) {
-          greetingEl.textContent = 'أهلاً بك في منصة Terriva الحية! 👋 تم تسجيل حقل [' + fieldName + '] بمساحة ' + areaFeddan + ' فدان. اسألني عن توصيات التسميد بالشكاير أو الري بالمتر المكعب.';
-        }
-        
-        // Update user cards and configurations in frontend
-        const avatarStr = companyName.substring(0, 2).toUpperCase();
-        
-        // Update sidebar user card
-        document.querySelector('.sidebar-footer .user-avatar').textContent = avatarStr;
-        document.querySelector('.sidebar-footer .user-info h4').textContent = companyName;
-        document.querySelector('.sidebar-footer .user-info p').textContent = plan;
-        
-        // Update setting roles table
-        const rolesBody = document.querySelector('#tab-settings .field-table tbody');
-        if (rolesBody) {
-          rolesBody.innerHTML = `
-            <tr>
-              <td>${email}</td>
-              <td>Tenant Owner (${plan})</td>
-              <td>Active</td>
-            </tr>
-          `;
-        }
-        
-        // Load the new tenant-specific fields
-        loadFieldsTable();
-        
-        // Transition straight to the workspace dashboard!
-        showView('dashboard-view');
-        showToast('Workspace Created', `Welcome ${companyName}! Crop models for ${cropFocus} compiled.`, 'success');
-        
-        // Fly map to the new fields!
-        setTimeout(() => {
-          if (map && data.fields.length > 0) {
-            drawFieldsOnMap();
-            map.flyTo(data.fields[0].coordinates[0], 14);
-            toggleMobileSimulator();
-          }
-        }, 1000);
+      if (data.success && data.field) {
+        applyUserLandData({
+          name: data.company_name,
+          company: `${data.company_name} للإنتاج الزراعي`,
+          field: data.field
+        });
       }
-    });
+    })
+    .catch(err => console.log('Static register mode active.'));
+
+  showView('dashboard-view');
+  showToast('تم تسجيل المزرعة', `أهلاً بك في ${companyName}! تم تجهيز التوصيات وحساب الشكاير والري.`, 'success');
+  setTimeout(() => { toggleMobileSimulator(); }, 800);
 }
 
 
