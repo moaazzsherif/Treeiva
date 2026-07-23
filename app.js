@@ -1,0 +1,1673 @@
+/* Terriva Dashboard Core JS */
+
+// Global fetch interceptor to support file:// protocol and cross-origin debugging
+(function() {
+  const originalFetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === 'string' && input.startsWith('/api/')) {
+      const apiBase = (window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+      input = apiBase + input;
+    }
+    return originalFetch(input, init);
+  };
+})();
+
+// Global state variables
+let map;
+let activeTheme = 'dark';
+let activeMapLayer = 'base';
+let charts = {};
+let twinAnimationId = null;
+let currentTwinField = 'field-alpha';
+let deviceLat = 30.8252; // Default Beheira lat
+let deviceLon = 30.6483; // Default Beheira lon
+let deviceCity = "Beheira, EG";
+let deviceTemp = "32";
+let activeFieldIdForAnalysis = 'field-alpha';
+let loggedInUserName = 'Moaaz';
+let weatherForecastData = null;
+
+// Initialize the application once loaded
+window.addEventListener('DOMContentLoaded', () => {
+  initTwinCanvas();
+  showView('landing-view');
+  
+  // Set theme from storage
+  const savedTheme = localStorage.getItem('terriva-theme') || 'dark';
+  setTheme(savedTheme);
+
+  // FAQ Accordion Toggle
+  document.querySelectorAll('.faq-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const item = trigger.closest('.faq-item');
+      const isActive = item.classList.contains('active');
+      
+      // Close other items
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+      
+      if (!isActive) {
+        item.classList.add('active');
+      }
+    });
+  });
+});
+
+// Fetch Device Geolocation & Weather
+function triggerDeviceSync() {
+  if (navigator.geolocation) {
+    showToast('Syncing Location', 'Retrieving device GPS coordinates...', 'info');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        deviceLat = position.coords.latitude;
+        deviceLon = position.coords.longitude;
+        
+        // Update Leaflet map coordinates
+        if (map) {
+          map.flyTo([deviceLat, deviceLon], 15);
+        }
+        
+        // Fetch local city name & local temperature
+        fetchLocationMetadata(deviceLat, deviceLon);
+      },
+      (error) => {
+        console.warn("Geolocation permission denied, using default coordinates.", error);
+        showToast('GPS Fallback Active', 'Using default coordinates (Beheira, Egypt).', 'warning');
+        loadFieldsTable();
+      }
+    );
+  } else {
+    showToast('GPS Deficit', 'Geolocation not supported by this device browser.', 'warning');
+    loadFieldsTable();
+  }
+}
+
+// Reverse Geocoding & Weather Telemetry Ingestion
+function fetchLocationMetadata(lat, lon) {
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration&timezone=auto`;
+  const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+
+  // 1. Fetch Temperature
+  fetch(weatherUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data) {
+        if (data.current_weather) {
+          deviceTemp = Math.round(data.current_weather.temperature);
+          updateWeatherWidget();
+        }
+        if (data.daily) {
+          weatherForecastData = {
+            temp_max: data.daily.temperature_2m_max[0],
+            temp_min: data.daily.temperature_2m_min[0],
+            precipitation: data.daily.precipitation_sum[0],
+            evapotranspiration_et0: data.daily.et0_fao_evapotranspiration[0] || 5.0,
+            humidity: 58.0,
+            wind_speed: 14.2
+          };
+          
+          // Dynamically update Overview climate cards
+          const overviewTemp = document.getElementById('label-device-temp');
+          if (overviewTemp) overviewTemp.textContent = deviceTemp;
+        }
+      }
+    })
+    .catch(err => console.error("Error fetching weather forecast:", err));
+
+  // 2. Fetch City Name
+  fetch(geoUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.address) {
+        deviceCity = data.address.city || data.address.town || data.address.village || data.address.suburb || "Local Region";
+        updateWeatherWidget();
+        showToast('Device Localized', `Map centered on ${deviceCity}.`, 'success');
+        
+        const overviewCity = document.getElementById('label-device-city');
+        if (overviewCity) overviewCity.textContent = deviceCity;
+      }
+      
+      // Store coordinates; map initializes when GIS tab opens
+      registerLocalFieldAroundCoords(lat, lon);
+    })
+    .catch(err => {
+      console.error("Geocoding failed:", err);
+      deviceCity = "Localized Farm";
+      updateWeatherWidget();
+      registerLocalFieldAroundCoords(lat, lon);
+    });
+}
+
+function updateWeatherWidget() {
+  const widget = document.querySelector('.weather-widget');
+  if (widget) {
+    widget.innerHTML = `
+      <i class="fa-solid fa-cloud-sun text-warning"></i>
+      <span>${deviceCity} &bull; ${deviceTemp}°C &bull; Connected</span>
+    `;
+  }
+}
+
+// Register a mock farm boundary polygon around the user's real coordinates
+function registerLocalFieldAroundCoords(lat, lon) {
+  // Generate square coords around center lat/lon
+  const d = 0.003; // ~300 meters offset
+  const coordinates = [
+    [lat + d, lon - d],
+    [lat + d, lon + d],
+    [lat - d, lon + d],
+    [lat - d, lon - d]
+  ];
+
+  fetch('/api/fields/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: "My Local Field",
+      crop: "Wheat",
+      soil_type: "Clay Loam",
+      coordinates: coordinates
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        loadFieldsTable();
+        // Add polygon to map
+        drawFieldsOnMap();
+      }
+    })
+    .catch(err => console.error("Failed to register local coordinates field:", err));
+}
+// View Controller State Transitions
+function showView(viewId) {
+  const views = ['landing-view', 'login-view', 'dashboard-view'];
+  views.forEach(v => {
+    document.getElementById(v).style.display = (v === viewId) ? 'flex' : 'none';
+  });
+
+  if (viewId === 'dashboard-view') {
+    document.body.style.height = '100vh';
+    document.body.style.overflow = 'hidden';
+    // Start Geolocation flow on entry
+    triggerDeviceSync();
+    
+    setTimeout(() => {
+      if(map) map.invalidateSize();
+      initCharts();
+    }, 100);
+  } else {
+    document.body.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+  }
+}
+// Sidebar Navigation Tab Switching
+function switchTab(tabId, element) {
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    link.classList.remove('active');
+  });
+  if(element) element.classList.add('active');
+
+  document.querySelectorAll('.page-content').forEach(page => {
+    page.classList.remove('active');
+  });
+  const targetTab = document.getElementById(tabId);
+  if(targetTab) targetTab.classList.add('active');
+
+  if(tabId === 'tab-gis') {
+    // Initialize map on first visit if not yet created (wait for 400ms fade-in transition to complete)
+    setTimeout(() => {
+      if(!map) {
+        initLeafletMap();
+      } else {
+        map.invalidateSize();
+        map.flyTo([deviceLat, deviceLon], 14, { duration: 0.5 });
+      }
+      drawFieldsOnMap();
+    }, 500);
+  }
+  
+  if(tabId === 'tab-digital-twin') {
+    setTimeout(() => {
+      initTwinCanvas();
+    }, 150);
+  }
+  
+  // Start admin terminal when entering admin tab
+  if(tabId === 'tab-admin') {
+    try { startAdminTerminalSimulator(); } catch(e) {}
+  }
+
+  // Load system settings when entering settings tab
+  if(tabId === 'tab-settings') {
+    try { loadSystemSettings(); } catch(e) {}
+  }
+}
+
+// 2FA login simulator
+function goTo2FA() {
+  const email = document.getElementById('login-email').value;
+  if (!email) {
+    showToast('Input Required', 'Please enter a valid email address.', 'danger');
+    return;
+  }
+  document.querySelector('.login-step-1').style.display = 'none';
+  document.querySelector('.login-step-2').style.display = 'block';
+  showToast('Verification Sent', '2FA security code dispatched.', 'info');
+}
+
+function resetLogin() {
+  document.querySelector('.login-step-2').style.display = 'none';
+  document.querySelector('.login-step-1').style.display = 'block';
+}
+
+function enterDashboard() {
+  const email = document.getElementById('login-email').value;
+  const adminLi = document.querySelector('.admin-only');
+  
+  // Extract user display name — founder override first
+  if (email === 'moaazshrif246@gmail.com') {
+    loggedInUserName = 'Moaaz';
+    if (adminLi) adminLi.style.display = 'block';
+    try { startAdminTerminalSimulator(); } catch(e) { console.log('Admin terminal init skipped'); }
+    showToast('Founder Access Granted', 'SaaS God Mode console activated.', 'warning');
+  } else {
+    loggedInUserName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    if (adminLi) adminLi.style.display = 'none';
+    showToast('Access Granted', 'Decentralized workspace session unlocked.', 'success');
+  }
+  
+  // Update chat greeting with user name
+  const greeting = 'Hello ' + loggedInUserName + '! 👋 I am your AI Agri-Assistant. Ask me anything about your farm fields, recommendations, or carbon credits.';
+  const greetingEl = document.getElementById('copilot-initial-greeting');
+  if (greetingEl) {
+    greetingEl.textContent = greeting;
+  }
+  
+  showView('dashboard-view');
+  setTimeout(() => { toggleMobileSimulator(); }, 800);
+}
+
+function logout() {
+  // Reset database back to default mock fields on logout
+  fetch('/api/auth/reset', { method: 'POST' })
+    .then(() => {
+      loadFieldsTable();
+      if(map) drawFieldsOnMap();
+    });
+
+  showView('landing-view');
+  resetLogin();
+  toggleLoginRegister(false);
+}
+
+function moveOtpFocus(input, index) {
+  if (input.value.length === 1 && index < 4) {
+    document.querySelectorAll('.otp-input')[index].focus();
+  }
+}
+
+// Theme Config
+function toggleTheme() {
+  const nextTheme = activeTheme === 'dark' ? 'light' : 'dark';
+  setTheme(nextTheme);
+}
+
+function setTheme(theme) {
+  activeTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('terriva-theme', theme);
+  
+  const toggleIcon = document.querySelector('.theme-toggle i');
+  if(toggleIcon) {
+    toggleIcon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+  }
+}
+
+// Toast System
+function showToast(title, desc, type = 'success') {
+  const toast = document.getElementById('toast-notif');
+  const tTitle = document.getElementById('toast-title');
+  const tDesc = document.getElementById('toast-desc');
+  
+  tTitle.textContent = title;
+  tDesc.textContent = desc;
+  
+  if(type === 'success') toast.style.borderLeftColor = 'var(--primary)';
+  else if(type === 'danger') toast.style.borderLeftColor = 'var(--danger)';
+  else if(type === 'info') toast.style.borderLeftColor = 'var(--info)';
+  else toast.style.borderLeftColor = 'var(--warning)';
+
+  toast.style.display = 'block';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 4000);
+}
+
+// Leaflet GIS Mapping
+let layersGroup = null;
+
+function initLeafletMap() {
+  if (map) return; // Only init once
+
+  map = L.map('leaflet-map').setView([deviceLat, deviceLon], 14);
+
+  // Satellite layer
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; World Imagery Map'
+  }).addTo(map);
+
+  layersGroup = L.layerGroup().addTo(map);
+
+  // Geoman drawing controls
+  map.pm.addControls({
+    position: 'topleft',
+    drawCircleMarker: false,
+    drawMarker: false,
+    drawPolyline: false,
+    drawCircle: false,
+    cutPolygon: false
+  });
+
+  // Listen to new draws
+  map.on('pm:create', function(e) {
+    const layer = e.layer;
+    const latlngs = layer.getLatLngs()[0].map(coord => [coord.lat, coord.lng]);
+    
+    // Register drawn field in backend API
+    fetch('/api/fields/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `Drawn Boundary ${Math.floor(Math.random() * 100)}`,
+        crop: "Maize",
+        soil_type: "Sandy Loam",
+        coordinates: latlngs
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if(data.success) {
+          showToast('Field Registered', 'New drawn polygon saved to database.', 'success');
+          loadFieldsTable();
+          drawFieldsOnMap();
+        }
+      });
+  });
+
+  drawFieldsOnMap();
+  
+  // Secondary size invalidation safety net
+  setTimeout(() => {
+    if(map) map.invalidateSize();
+  }, 200);
+}
+
+function drawFieldsOnMap() {
+  if (!map || !layersGroup) return;
+  layersGroup.clearLayers();
+
+  fetch('/api/fields')
+    .then(res => res.json())
+    .then(fields => {
+      fields.forEach(field => {
+        let fillCol = '#8B9B49';
+        let opacity = 0.25;
+
+        // Visual layers color scaling
+        if (activeMapLayer === 'ndvi') {
+          fillCol = field.ndvi > 0.6 ? '#1a9850' : '#fee08b';
+          opacity = 0.6;
+        } else if (activeMapLayer === 'moisture') {
+          fillCol = field.moisture > 40 ? '#2171b5' : '#deebf7';
+          opacity = 0.5;
+        } else if (activeMapLayer === 'vr') {
+          fillCol = '#E5B869';
+          opacity = 0.55;
+        }
+
+        const polygon = L.polygon(field.coordinates, {
+          color: activeMapLayer === 'vr' ? '#E5B869' : '#8B9B49',
+          fillColor: fillCol,
+          fillOpacity: opacity,
+          weight: 2
+        }).addTo(layersGroup);
+
+        polygon.bindPopup(`
+          <div style="font-family: var(--font-body); color:#2c3518; padding: 5px; min-width: 180px;">
+            <h4 style="font-weight: 700; margin-bottom: 5px;">${field.name}</h4>
+            <p style="font-size:12px;"><b>Crop:</b> ${field.crop}</p>
+            <p style="font-size:12px;"><b>NDVI Index:</b> ${field.ndvi}</p>
+            <p style="font-size:12px;"><b>Moisture:</b> ${field.moisture}%</p>
+            <p style="font-size:12px;"><b>Area:</b> ${field.area_ha} Hectares</p>
+            <hr style="margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;">
+            <button class="primary-btn" style="padding: 4px 8px; font-size:10px; width: 100%; justify-content: center;" onclick="viewFieldTwin('${field.id}')">Open Digital Twin</button>
+          </div>
+        `);
+      });
+    });
+}
+function setMapLayer(layerType) {
+  activeMapLayer = layerType;
+  
+  const layers = ['base', 'ndvi', 'moisture', 'vr'];
+  layers.forEach(l => {
+    const btn = document.getElementById(`btn-layer-${l}`);
+    if (btn) {
+      if (l === layerType) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  drawFieldsOnMap();
+  animateTractorVR();
+  showToast('GIS Layer Configured', `Active overlay set to: ${layerType.toUpperCase()}`, 'info');
+}
+function onTimelineSliderChange(val) {
+  const months = ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'June 2026'];
+  document.getElementById('timeline-date-label').textContent = months[val - 1];
+  drawFieldsOnMap();
+}
+
+// Fetch and load database fields table
+function loadFieldsTable() {
+  fetch('/api/fields')
+    .then(res => res.json())
+    .then(fields => {
+      // 1. Update Overview Table
+      const overviewBody = document.querySelector('.field-table tbody');
+      if (overviewBody) {
+        overviewBody.innerHTML = '';
+        fields.forEach(field => {
+          overviewBody.innerHTML += `
+            <tr>
+              <td>${field.name}</td>
+              <td><span class="crop-tag">${field.crop}</span></td>
+              <td>${field.soil_type}</td>
+              <td>${field.moisture}%</td>
+              <td class="trend-up" style="color:var(--primary-light)">+${Math.round(field.ndvi * 20)}%</td>
+              <td><button class="glass-btn" style="padding: 5px 10px;" onclick="viewFieldTwin('${field.id}')">View Twin</button></td>
+            </tr>
+          `;
+        });
+      }
+
+      // Update dropdown selections if any
+      const analysisSelect = document.getElementById('field-setup-name');
+      if (analysisSelect) {
+        activeFieldIdForAnalysis = fields[0]?.id || 'field-alpha';
+      }
+    });
+}
+
+// Register field form submit
+function registerNewField() {
+  const name = document.getElementById('field-setup-name').value;
+  const crop = document.getElementById('field-setup-crop').value;
+  const soil = document.getElementById('field-setup-soil').value;
+
+  if(!name) {
+    showToast('Missing Moniker', 'Please specify field name.', 'danger');
+    return;
+  }
+
+  // Generate mock coordinates around current device location
+  const d = 0.002;
+  const offsetLat = (Math.random() - 0.5) * 0.01;
+  const offsetLon = (Math.random() - 0.5) * 0.01;
+  const centerLat = deviceLat + offsetLat;
+  const centerLon = deviceLon + offsetLon;
+  
+  const coordinates = [
+    [centerLat + d, centerLon - d],
+    [centerLat + d, centerLon + d],
+    [centerLat - d, centerLon + d],
+    [centerLat - d, centerLon - d]
+  ];
+
+  fetch('/api/fields/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: name,
+      crop: crop,
+      soil_type: soil,
+      coordinates: coordinates
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        showToast('Farm Registered', `New field boundary added successfully.`, 'success');
+        loadFieldsTable();
+        drawFieldsOnMap();
+        switchTab('tab-gis', document.querySelectorAll('.sidebar-link')[2]);
+      }
+    });
+}
+
+// AI Analysis Simulation
+function runAISimulation() {
+  const runBtn = document.getElementById('btn-run-ai');
+  const spinRing = document.getElementById('ai-spin-ring');
+  const progressFill = document.getElementById('ai-progress-bar');
+  const stepTitle = document.getElementById('ai-step-title');
+  const stepDesc = document.getElementById('ai-step-desc');
+  const shapVisual = document.getElementById('shap-results');
+
+  runBtn.disabled = true;
+  spinRing.classList.add('active');
+  shapVisual.style.display = 'none';
+
+  const steps = [
+    { pct: 20, title: 'Parsing Sentinel Bands', desc: 'Fetching 10m bands from Sentinel-2 tile archive...' },
+    { pct: 50, title: 'Syncing IoT Telemetry', desc: 'Validating moisture and soil EC telemetry signals...' },
+    { pct: 85, title: 'Ground Truth Alignment', desc: 'Matching spectroscopy lab data matrices...' },
+    { pct: 100, title: 'Compilation Complete', desc: 'Fusing datasets into decision models...' }
+  ];
+
+  let idx = 0;
+  const interval = setInterval(() => {
+    if (idx < steps.length) {
+      progressFill.style.width = `${steps[idx].pct}%`;
+      stepTitle.textContent = steps[idx].title;
+      stepDesc.textContent = steps[idx].desc;
+      idx++;
+    } else {
+      clearInterval(interval);
+      
+      // Pull real predictions from python backend decision engine
+      fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field_id: activeFieldIdForAnalysis,
+          temp_forecast: deviceTemp,
+          weather_forecast: weatherForecastData
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          spinRing.classList.remove('active');
+          runBtn.disabled = false;
+          
+          // Show SHAP bars
+          shapVisual.style.display = 'block';
+          updateShapAttributions(data.shap_values);
+          
+          // Update Recommendations Tab parameters with actual API response
+          updateRecommendationsView(data);
+          
+          showToast('Optimization Compiled', 'Decision engine model execution completed.', 'success');
+          
+          setTimeout(() => {
+            switchTab('tab-recommendations', document.querySelectorAll('.sidebar-link')[4]);
+          }, 1500);
+        });
+    }
+  }, 1000);
+}
+
+function updateShapAttributions(shap) {
+  const shapResultsDiv = document.getElementById('shap-results');
+  if(!shapResultsDiv) return;
+
+  // Render bars dynamically reflecting positive/negative pull
+  shapResultsDiv.innerHTML = `
+    <h4>Explainable AI (SHAP Impact Values)</h4>
+    <p style="font-size:12px; color:var(--text-secondary); margin-bottom: 15px;">Features with the largest direct impact on fertilizer recommendations</p>
+    
+    <div class="shap-bar-row">
+      <div class="shap-label">NDVI Index</div>
+      <div class="shap-track">
+        <div class="shap-fill ${shap.ndvi >= 0 ? 'positive' : 'negative'}" style="width: ${Math.min(50, Math.abs(shap.ndvi * 100))}%"></div>
+      </div>
+      <span style="font-size:11px; margin-left:10px;">${shap.ndvi}</span>
+    </div>
+    <div class="shap-bar-row">
+      <div class="shap-label">Soil moisture</div>
+      <div class="shap-track">
+        <div class="shap-fill ${shap.moisture >= 0 ? 'positive' : 'negative'}" style="width: ${Math.min(50, Math.abs(shap.moisture * 2.5))}%"></div>
+      </div>
+      <span style="font-size:11px; margin-left:10px;">${shap.moisture}</span>
+    </div>
+    <div class="shap-bar-row">
+      <div class="shap-label">Organic Matter</div>
+      <div class="shap-track">
+        <div class="shap-fill ${shap.organic_matter >= 0 ? 'positive' : 'negative'}" style="width: ${Math.min(50, Math.abs(shap.organic_matter * 10))}%"></div>
+      </div>
+      <span style="font-size:11px; margin-left:10px;">${shap.organic_matter}</span>
+    </div>
+  `;
+}
+
+function updateRecommendationsView(data) {
+  latestPrescriptionData = data;
+  const recTab = document.getElementById('tab-recommendations');
+  if(!recTab) return;
+
+  const fRec = data.fertilizer_recommendation || {};
+  const nRec = fRec.nitrogen || {};
+  const pRec = fRec.phosphorus || {};
+  const kRec = fRec.potassium || {};
+  const compRec = fRec.organic_compost || {};
+  const irrRec = fRec.irrigation || {};
+
+  // Update Overview Stat Cards
+  const valN = document.getElementById('rec-n-val');
+  if(valN) valN.textContent = `${nRec.kg_per_feddan || data.nitrogen_kg_ha} كجم/فدان (${nRec.bags_per_feddan || 0} شكارة)`;
+  
+  const nameN = document.getElementById('rec-n-name');
+  if(nameN) nameN.textContent = nRec.fertilizer_name || 'سلفات نشادر (20.6% N)';
+
+  const valW = document.getElementById('rec-water-val');
+  if(valW) valW.textContent = `${irrRec.water_m3_per_feddan || data.water_m3_feddan || 25} m³/فدان`;
+
+  const schedW = document.getElementById('rec-water-schedule');
+  if(schedW) schedW.textContent = irrRec.irrigation_schedule_ar || 'حسب رطوبة التربة والبخر';
+
+  const valC = document.getElementById('rec-cost-val');
+  if(valC) valC.textContent = `-$${data.cost_savings_usd || 0}`;
+
+  // Update Detailed Prescription Cards Container
+  const cardsContainer = document.getElementById('agri-prescription-cards');
+  if(cardsContainer) {
+    cardsContainer.innerHTML = `
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:25px;">
+        
+        <!-- Nitrogen Card -->
+        <div class="glass" style="padding:20px; border-top:4px solid #10b981;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="color:#10b981; margin:0;"><i class="fa-solid fa-flask"></i> السماد النيتروجيني (N)</h4>
+            <span class="crop-tag">${data.crop_ar || data.crop || 'قمح'}</span>
+          </div>
+          <p style="font-weight:700; font-size:16px; margin-bottom:8px;">${nRec.fertilizer_name || 'سلفات نشادر 20.6%'}</p>
+          <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; font-size:13px; margin-bottom:10px;">
+            <div>• الجرعة للفدان: <strong>${nRec.kg_per_feddan || 0} كجم/فدان</strong> (حوالي <strong>${nRec.bags_per_feddan || 0} شكارة</strong>)</div>
+            <div>• إجمالي الحقل (${fRec.area_feddan || 5} فدان): <strong>${nRec.total_bags_field || 0} شكارة</strong></div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">💡 <em>${nRec.recommendation_reason || 'توزيع متوازن للتسميد'}</em></p>
+        </div>
+
+        <!-- Phosphorus Card -->
+        <div class="glass" style="padding:20px; border-top:4px solid #3b82f6;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="color:#3b82f6; margin:0;"><i class="fa-solid fa-atom"></i> السماد الفوسفاتي (P)</h4>
+            <span class="crop-tag" style="background:rgba(59,130,246,0.15); color:#3b82f6;">فوسفور</span>
+          </div>
+          <p style="font-weight:700; font-size:16px; margin-bottom:8px;">${pRec.fertilizer_name || 'سوبر فوسفات أحادي'}</p>
+          <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; font-size:13px; margin-bottom:10px;">
+            <div>• الجرعة للفدان: <strong>${pRec.kg_per_feddan || 0} كجم/فدان</strong> (حوالي <strong>${pRec.bags_per_feddan || 0} شكارة</strong>)</div>
+            <div>• إجمالي الحقل: <strong>${pRec.total_bags_field || 0} شكارة</strong></div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">💡 <em>${pRec.recommendation_reason || 'تحفيز نمو الجذور'}</em></p>
+        </div>
+
+        <!-- Potassium Card -->
+        <div class="glass" style="padding:20px; border-top:4px solid #f59e0b;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="color:#f59e0b; margin:0;"><i class="fa-solid fa-bolt"></i> السماد البوتاسي (K)</h4>
+            <span class="crop-tag" style="background:rgba(245,158,11,0.15); color:#f59e0b;">بوتاسيوم</span>
+          </div>
+          <p style="font-weight:700; font-size:16px; margin-bottom:8px;">${kRec.fertilizer_name || 'سلفات بوتاسيوم 50%'}</p>
+          <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; font-size:13px; margin-bottom:10px;">
+            <div>• الجرعة للفدان: <strong>${kRec.kg_per_feddan || 0} كجم/فدان</strong> (حوالي <strong>${kRec.bags_per_feddan || 0} شكارة</strong>)</div>
+            <div>• إجمالي الحقل: <strong>${kRec.total_bags_field || 0} شكارة</strong></div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">💡 <em>${kRec.recommendation_reason || 'تحسين حجم وملاءمة الثمار'}</em></p>
+        </div>
+
+        <!-- Irrigation Prescriptions Card -->
+        <div class="glass" style="padding:20px; border-top:4px solid #06b6d4;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="color:#06b6d4; margin:0;"><i class="fa-solid fa-droplet"></i> نظام الاحتياج المائي والري الذكي</h4>
+            <span class="crop-tag" style="background:rgba(6,182,212,0.15); color:#06b6d4;">ري ذكي</span>
+          </div>
+          <p style="font-weight:700; font-size:16px; margin-bottom:8px;">${irrigation_m3_per_feddan || irrRec.water_m3_per_feddan || 85} م³ / فدان للرية الواحدة</p>
+          <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; font-size:13px; margin-bottom:10px;">
+            <div>• مواعيد الري: <strong>${irrRec.irrigation_schedule_ar || 'كل 4 إلى 6 أيام'}</strong></div>
+            <div>• طريقة الري الموصى بها: <strong>${irrRec.irrigation_method_ar || 'الري بالتنقيط'}</strong></div>
+            <div>• إجمالي مياه الحقل: <strong>${irrRec.total_water_m3_field || 0} م³</strong></div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">💡 <em>البخر-ندح اليومي التقديري: ${irrRec.daily_et0_mm || 5.5} ملم/يوم</em></p>
+        </div>
+
+      </div>
+    `;
+  }
+}
+
+// Global variable storing latest prescription data
+let latestPrescriptionData = null;
+
+function sharePrescriptionWhatsApp() {
+  const data = latestPrescriptionData || {};
+  const fRec = data.fertilizer_recommendation || {};
+  const nRec = fRec.nitrogen || {};
+  const pRec = fRec.phosphorus || {};
+  const kRec = fRec.potassium || {};
+  const irrRec = fRec.irrigation || {};
+
+  const crop = data.crop_ar || data.crop || 'قمح';
+  const area = fRec.area_feddan || 5;
+
+  const msg = `🌾 *توصية التسميد والري الذكي - منصة Terriva* 🌾%0A` +
+              `• المحصول: ${crop} | المساحة: ${area} فدان%0A%0A` +
+              `🧪 *الأسمدة الموصى بها:*%0A` +
+              `- النيتروجين: ${nRec.fertilizer_name || 'سلفات نشادر'} -> ${nRec.total_bags_field || 0} شكارة (${nRec.bags_per_feddan || 0} شكارة/فدان)%0A` +
+              `- الفوسفور: ${pRec.fertilizer_name || 'سوبر فوسفات'} -> ${pRec.total_bags_field || 0} شكارة%0A` +
+              `- البوتاسيوم: ${kRec.fertilizer_name || 'سلفات بوتاسيوم'} -> ${kRec.total_bags_field || 0} شكارة%0A%0A` +
+              `💧 *الري الذكي:*%0A` +
+              `- الكمية: ${irrRec.water_m3_per_feddan || 85} م³/فدان (%0A` +
+              `- الجدول: ${irrRec.irrigation_schedule_ar || 'كل 4 إلى 6 أيام'}%0A%0A` +
+              `📈 زيادة المحصول المتوقعة: +${data.yield_improvement_pct || 15}%`;
+
+  window.open(`https://wa.me/201011068548?text=${msg}`, '_blank');
+}
+
+function printPrescriptionReport() {
+  window.print();
+}
+
+// Digital Twin Canvas rendering
+let rainIntensity = 15;
+function initTwinCanvas() {
+  const canvas = document.getElementById('twin-canvas');
+  if(!canvas) return;
+
+  if (twinAnimationId) {
+    cancelAnimationFrame(twinAnimationId);
+  }
+
+  const ctx = canvas.getContext('2d');
+  let width = canvas.offsetWidth;
+  let height = canvas.offsetHeight;
+  if (width === 0) width = 600;
+  if (height === 0) height = 400;
+  canvas.width = width;
+  canvas.height = height;
+
+  const rows = 18;
+  const cols = 18;
+  const spacingX = width / (cols + 1);
+  const spacingY = height / (rows + 1);
+  let rotation = 0;
+
+  function renderTwinFrame() {
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.strokeStyle = activeTheme === 'dark' ? 'rgba(139, 155, 73, 0.25)' : 'rgba(139, 155, 73, 0.4)';
+    ctx.lineWidth = 1;
+
+    rotation += 0.003;
+
+    for(let r = 0; r < rows; r++) {
+      ctx.beginPath();
+      for(let c = 0; c < cols; c++) {
+        const xOffset = (c - cols/2) * spacingX * 0.8;
+        const yOffset = (r - rows/2) * spacingY * 0.8;
+        
+        const wave = Math.sin(r * 0.3 + rotation * 2) * Math.cos(c * 0.3 + rotation) * 15 * (rainIntensity / 15);
+        
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        
+        const rotatedX = xOffset * cos - yOffset * sin;
+        const rotatedY = xOffset * sin + yOffset * cos;
+
+        const z = 300 + rotatedY * 0.5; 
+        const projX = width/2 + (rotatedX * 280) / z;
+        const projY = height/2 + ((rotatedY - wave) * 180) / z;
+
+        if(c === 0) ctx.moveTo(projX, projY);
+        else ctx.lineTo(projX, projY);
+
+        if(c % 2 === 0 && r % 2 === 0) {
+          ctx.fillStyle = activeTheme === 'dark' ? `rgba(14, 165, 233, ${0.4 + (rainIntensity/100)})` : 'var(--info)';
+          ctx.beginPath();
+          ctx.arc(projX, projY, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.stroke();
+    }
+
+    twinAnimationId = requestAnimationFrame(renderTwinFrame);
+  }
+
+  renderTwinFrame();
+}
+
+function onTwinSliderChange(val) {
+  rainIntensity = val;
+  document.getElementById('label-rain-val').textContent = `${val} mm`;
+  
+  // Call simulation backend API
+  fetch('/api/digital-twin/simulate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      field_id: currentTwinField,
+      rainfall_val: val
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      const twinHeader = document.querySelector('.twin-canvas-overlay div:nth-child(2) div:nth-child(2)');
+      if(twinHeader) {
+        twinHeader.textContent = `${data.simulated_moisture_pct}% (Risk: ${data.adjusted_risk_score}%)`;
+        twinHeader.style.color = data.adjusted_risk_score > 50 ? 'var(--danger)' : 'var(--primary-light)';
+      }
+    });
+}
+
+function viewFieldTwin(fieldId) {
+  currentTwinField = fieldId;
+  fetch('/api/fields')
+    .then(res => res.json())
+    .then(fields => {
+      const field = fields.find(f => f.id === fieldId);
+      if(field) {
+        document.getElementById('twin-field-title').textContent = field.name;
+        activeFieldIdForAnalysis = fieldId;
+      }
+      switchTab('tab-digital-twin', document.querySelectorAll('.sidebar-link')[5]);
+    });
+}
+
+// Side-by-side Mobile Simulator
+function toggleMobileSimulator() {
+  const sim = document.getElementById('mobile-sim');
+  const frame = document.querySelector('.dashboard-layout');
+
+  if(sim.style.display === 'none') {
+    sim.style.display = 'flex';
+    frame.classList.add('with-sidebar-sim');
+    showToast('Mobile Simulator Enabled', 'Interactive mobile app simulator synchronized.', 'info');
+  } else {
+    sim.style.display = 'none';
+    frame.classList.remove('with-sidebar-sim');
+  }
+}
+
+// Reports Hub PDF/Excel compilation API
+function simulateReportDownload(format) {
+  const modal = document.getElementById('modal-overlay');
+  const mTitle = document.getElementById('modal-title');
+  const mBody = document.getElementById('modal-body');
+
+  mTitle.textContent = `Exporting ${format} Report`;
+  
+  mBody.innerHTML = `
+    <div style="text-align:center; padding:30px;">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size:36px; color:var(--primary); margin-bottom:15px;"></i>
+      <h4>Querying database and imagery bands...</h4>
+      <p style="font-size:12px; color:var(--text-secondary); margin-top:5px;">This takes 2 seconds for server compilation.</p>
+    </div>
+  `;
+  modal.style.display = 'flex';
+
+  fetch('/api/reports/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ format: format })
+  })
+    .then(res => res.json())
+    .then(data => {
+      setTimeout(() => {
+        mBody.innerHTML = `
+          <div style="text-align:center; padding:10px;">
+            <i class="fa-solid fa-circle-check" style="font-size:40px; color:var(--primary); margin-bottom:15px;"></i>
+            <h4>Download Completed!</h4>
+            <p style="font-size:12px; color:var(--text-secondary); margin: 5px 0 20px 0;">Your file: <b>${data.filename}</b> has compiled successfully.</p>
+            <button class="primary-btn" onclick="closeModal()">Close Window</button>
+          </div>
+        `;
+        // Trigger real file download
+        const downloadBase = (window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+        window.location.href = downloadBase + `/api/reports/download?format=${format}`;
+      }, 1500);
+    });
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+// Init ChartJS elements
+function initCharts() {
+  if (charts.yield) return;
+
+  const yieldCtx = document.getElementById('yield-chart').getContext('2d');
+  charts.yield = new Chart(yieldCtx, {
+    type: 'bar',
+    data: {
+      labels: ['2022', '2023', '2024', '2025', '2026 (Pred)'],
+      datasets: [
+        {
+          label: 'Field Alpha (Wheat)',
+          data: [5.2, 5.8, 6.1, 6.4, 7.2],
+          backgroundColor: '#8B9B49',
+          borderRadius: 6
+        },
+        {
+          label: 'Field Beta (Maize)',
+          data: [4.1, 4.4, 4.2, 4.9, 5.5],
+          backgroundColor: '#0ea5e9',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } }
+      }
+    }
+  });
+
+  const npkCtx = document.getElementById('npk-chart').getContext('2d');
+  charts.npk = new Chart(npkCtx, {
+    type: 'line',
+    data: {
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+      datasets: [
+        {
+          label: 'Nitrogen (N)',
+          data: [85, 92, 110, 105, 115, 120],
+          borderColor: '#8B9B49',
+          tension: 0.3
+        },
+        {
+          label: 'Phosphorus (P)',
+          data: [42, 40, 48, 52, 50, 48],
+          borderColor: '#E5B869',
+          tension: 0.3
+        },
+        {
+          label: 'Potassium (K)',
+          data: [65, 70, 72, 68, 75, 78],
+          borderColor: '#0ea5e9',
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } }
+      }
+    }
+  });
+
+  const waterCtx = document.getElementById('water-chart').getContext('2d');
+  charts.water = new Chart(waterCtx, {
+    type: 'line',
+    data: {
+      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      datasets: [
+        {
+          label: 'Target Demand',
+          data: [20, 22, 20, 25, 24, 20, 18],
+          borderColor: '#0ea5e9',
+          borderDash: [5, 5],
+          tension: 0.1
+        },
+        {
+          label: 'Actual Ingestion',
+          data: [20, 24, 21, 28, 23, 19, 17],
+          backgroundColor: 'rgba(14,165,233,0.1)',
+          borderColor: '#38bdf8',
+          fill: true,
+          tension: 0.2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } }
+      }
+    }
+  });
+
+  const roiCtx = document.getElementById('roi-chart').getContext('2d');
+  charts.roi = new Chart(roiCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Fertilizer Saved', 'Water Optimized', 'Yield Profit', 'Carbon Credits'],
+      datasets: [{
+        data: [35, 15, 40, 10],
+        backgroundColor: ['#8B9B49', '#E5B869', '#A06A30', '#6366f1']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' }
+        }
+      }
+    }
+  });
+
+  // ---- Soil Health Radar Chart ----
+  const radarCtx = document.getElementById('soil-radar-chart').getContext('2d');
+  charts.soilRadar = new Chart(radarCtx, {
+    type: 'radar',
+    data: {
+      labels: ['Organic Matter', 'Nitrogen', 'Phosphorus', 'Potassium', 'pH Balance', 'Microbial Activity', 'Water Retention'],
+      datasets: [
+        {
+          label: 'Field Alpha',
+          data: [82, 75, 68, 88, 72, 90, 78],
+          borderColor: '#8B9B49',
+          backgroundColor: 'rgba(139, 155, 73, 0.15)',
+          pointBackgroundColor: '#8B9B49',
+          pointRadius: 4
+        },
+        {
+          label: 'Field Beta',
+          data: [65, 60, 72, 55, 80, 58, 62],
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14, 165, 233, 0.1)',
+          pointBackgroundColor: '#0ea5e9',
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        r: {
+          angleLines: { color: 'rgba(148,163,184,0.15)' },
+          grid: { color: 'rgba(148,163,184,0.1)' },
+          pointLabels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569', font: { size: 10 } },
+          ticks: { display: false },
+          suggestedMin: 0,
+          suggestedMax: 100
+        }
+      }
+    }
+  });
+
+  // ---- Soil pH Trend Chart ----
+  const phCtx = document.getElementById('ph-trend-chart').getContext('2d');
+  charts.phTrend = new Chart(phCtx, {
+    type: 'line',
+    data: {
+      labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+      datasets: [
+        {
+          label: 'Soil pH Level',
+          data: [6.2, 6.3, 6.1, 6.4, 6.5, 6.3, 6.6, 6.5, 6.7, 6.8, 6.7, 6.9],
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5,
+          pointBackgroundColor: '#f59e0b'
+        },
+        {
+          label: 'Optimal Range (6.5)',
+          data: [6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5, 6.5],
+          borderColor: 'rgba(74, 222, 128, 0.5)',
+          borderDash: [8, 4],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: {
+          min: 5.5, max: 7.5,
+          ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' }
+        }
+      }
+    }
+  });
+
+  // ---- Pest & Disease Risk Chart ----
+  const pestCtx = document.getElementById('pest-risk-chart').getContext('2d');
+  charts.pestRisk = new Chart(pestCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Aphids', 'Rust Fungus', 'Stem Borer', 'Leaf Blight', 'Root Rot', 'Whitefly'],
+      datasets: [{
+        label: 'Risk Level (%)',
+        data: [72, 45, 28, 58, 15, 38],
+        backgroundColor: [
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(239, 68, 68, 0.6)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(245, 158, 11, 0.6)'
+        ],
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          max: 100,
+          ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8', callback: v => v + '%' }
+        },
+        y: { ticks: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      }
+    }
+  });
+
+  // ---- Monthly Revenue vs Cost Chart ----
+  const revCtx = document.getElementById('revenue-cost-chart').getContext('2d');
+  charts.revCost = new Chart(revCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      datasets: [
+        {
+          label: 'Revenue',
+          data: [8200, 9100, 7800, 11400, 12800, 14200],
+          backgroundColor: 'rgba(139, 155, 73, 0.85)',
+          borderRadius: 6
+        },
+        {
+          label: 'Operating Cost',
+          data: [5400, 5100, 4800, 6200, 5900, 5500],
+          backgroundColor: 'rgba(229, 184, 105, 0.7)',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8', callback: v => '$' + (v/1000).toFixed(0) + 'K' } }
+      }
+    }
+  });
+
+  const temporalCtx = document.getElementById('multi-temporal-chart').getContext('2d');
+  charts.temporal = new Chart(temporalCtx, {
+    type: 'line',
+    data: {
+      labels: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+      datasets: [
+        {
+          label: 'Current Season 2026 (Sentinel-2)',
+          data: [0.15, 0.28, 0.45, 0.74, 0.76, null],
+          borderColor: '#8B9B49',
+          backgroundColor: 'rgba(139, 155, 73, 0.1)',
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: '5-Year Average (Historical Reference)',
+          data: [0.12, 0.25, 0.40, 0.58, 0.68, 0.70],
+          borderColor: '#E5B869',
+          borderDash: [5, 5],
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: activeTheme === 'dark' ? '#94a3b8' : '#475569' } }
+      },
+      scales: {
+        x: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } },
+        y: { ticks: { color: activeTheme === 'dark' ? '#64748b' : '#94a3b8' } }
+      }
+    }
+  });
+}
+
+function simulateFileUpload() {
+  showToast('File Uploader', 'Select KML/GeoJSON boundaries to sync coordinates.', 'info');
+}
+
+function exportShapefile() {
+  fetch('/api/fields')
+    .then(res => res.json())
+    .then(fields => {
+      if (fields.length === 0) {
+        showToast('Export Cancelled', 'No fields available to export.', 'warning');
+        return;
+      }
+      const geojson = {
+        type: "FeatureCollection",
+        features: fields.map(f => ({
+          type: "Feature",
+          properties: {
+            id: f.id,
+            name: f.name,
+            crop: f.crop,
+            soil_type: f.soil_type,
+            area_ha: f.area_ha,
+            ndvi: f.ndvi,
+            moisture: f.moisture
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [f.coordinates.map(c => [c[1], c[0]])]
+          }
+        }))
+      };
+      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "terriva_workspace_fields.geojson");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('GIS Export Success', 'GeoJSON fields saved to downloads.', 'success');
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Export Failed', 'Unable to retrieve workspace fields.', 'danger');
+    });
+}
+
+// ========================================== 
+// 1. Tractor VR Guidance Path Simulator 
+// ========================================== 
+let tractorMarker = null;
+let tractorPath = null;
+
+function animateTractorVR() {
+  if (tractorMarker) map.removeLayer(tractorMarker);
+  if (tractorPath) map.removeLayer(tractorPath);
+
+  if (activeMapLayer !== 'vr') return;
+
+  // Mock GPS guidance lines coordinates
+  const pathCoords = [
+    [30.829, 30.640],
+    [30.832, 30.642],
+    [30.830, 30.652],
+    [30.824, 30.648],
+    [30.829, 30.640]
+  ];
+
+  tractorPath = L.polyline(pathCoords, {
+    color: '#E5B869',
+    dashArray: '5, 10',
+    weight: 2
+  }).addTo(map);
+
+  let step = 0;
+  tractorMarker = L.marker(pathCoords[0], {
+    icon: L.divIcon({
+      html: '<i class="fa-solid fa-tractor" style="font-size:18px; color:#E5B869; text-shadow: 0 0 5px #000;"></i>',
+      iconSize: [20, 20],
+      className: 'tractor-icon-div'
+    })
+  }).addTo(map);
+
+  const interval = setInterval(() => {
+    if (activeMapLayer !== 'vr' || !map.hasLayer(tractorMarker)) {
+      clearInterval(interval);
+      if(tractorMarker) map.removeLayer(tractorMarker);
+      if(tractorPath) map.removeLayer(tractorPath);
+      return;
+    }
+    step = (step + 1) % pathCoords.length;
+    tractorMarker.setLatLng(pathCoords[step]);
+  }, 1200);
+}
+
+// ========================================== 
+// 2. AI Copilot Natural Language & Voice Assistant 
+// ========================================== 
+function toggleAICopilot() {
+  const drawer = document.getElementById('ai-copilot-drawer');
+  if(drawer.style.display === 'none' || !drawer.style.display) {
+    drawer.style.display = 'flex';
+  } else {
+    drawer.style.display = 'none';
+  }
+}
+
+function sendCopilotChatMessage() {
+  const input = document.getElementById('copilot-user-input');
+  const msg = input.value.trim();
+  if(!msg) return;
+  
+  appendCopilotBubble(msg, 'user');
+  input.value = '';
+  
+  // Send message to Flask NLP API
+  fetch('/api/ai/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg, user_name: loggedInUserName })
+  })
+    .then(res => res.json())
+    .then(data => {
+      appendCopilotBubble(data.response, 'ai');
+      // Announce response via Web Speech synthesis
+      speakResponse(data.response);
+    });
+}
+
+function checkCopilotSendKey(event) {
+  if(event.key === 'Enter') {
+    sendCopilotChatMessage();
+  }
+}
+
+function appendCopilotBubble(text, sender) {
+  const flow = document.getElementById('copilot-msg-flow');
+  flow.innerHTML += `
+    <div class="chat-msg ${sender}">${text}</div>
+  `;
+  flow.scrollTop = flow.scrollHeight;
+}
+
+// Web Speech Synthesis (Text-To-Speech)
+function speakResponse(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    // Strip emoji and markdown symbols for clean speech
+    const cleanText = text
+      .replace(/[\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]/gu, '')
+      .replace(/\*\*/g, '')
+      .replace(/[⚠️👋🌾💧🧪🌍]/g, '')
+      .trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0; 
+    utterance.pitch = 1.0;
+    // Select english voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const engVoice = voices.find(v => v.lang.startsWith('en'));
+    if (engVoice) utterance.voice = engVoice;
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+// HTML5 Speech Recognition (Voice Dictation)
+let speechRecognizer = null;
+function toggleVoiceSpeechRecognition() {
+  const btn = document.getElementById('btn-copilot-voice');
+  const input = document.getElementById('copilot-user-input');
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('Voice Error', 'Speech recognition not supported on this browser. Try Google Chrome.', 'danger');
+    return;
+  }
+  
+  if(btn.classList.contains('listening')) {
+    if(speechRecognizer) speechRecognizer.stop();
+    btn.classList.remove('listening');
+    return;
+  }
+  
+  btn.classList.add('listening');
+  speechRecognizer = new SpeechRecognition();
+  speechRecognizer.continuous = false;
+  speechRecognizer.interimResults = false;
+  speechRecognizer.lang = 'en-US';
+  
+  speechRecognizer.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    input.value = transcript;
+    btn.classList.remove('listening');
+    sendCopilotChatMessage(); // Auto submit
+  };
+  
+  speechRecognizer.onerror = function() {
+    btn.classList.remove('listening');
+  };
+  
+  speechRecognizer.onend = function() {
+    btn.classList.remove('listening');
+  };
+  
+  speechRecognizer.start();
+}
+
+// ========================================== 
+// 3. ESG Blockchain Registry Verification
+// ========================================== 
+function verifyEsgBlocks() {
+  showToast('Auditing Green Ledger', 'Decrypting SHA-256 blocks against satellite nodes...', 'info');
+  
+  setTimeout(() => {
+    showToast('Green Audit Success', 'Blockchain integrity verified. 0 anomalies detected.', 'success');
+  }, 2000);
+}
+
+
+// ========================================== 
+// 4. SaaS Organization Client Sign Up Logic
+// ========================================== 
+function toggleLoginRegister(showRegister) {
+  const step1 = document.querySelector('.login-step-1');
+  const step2 = document.querySelector('.login-step-2');
+  const registerCard = document.querySelector('.login-register');
+  const title = document.querySelector('.login-header h2');
+  
+  if (showRegister) {
+    step1.style.display = 'none';
+    step2.style.display = 'none';
+    registerCard.style.display = 'block';
+    title.textContent = 'Register SaaS Workspace';
+  } else {
+    step1.style.display = 'block';
+    step2.style.display = 'none';
+    registerCard.style.display = 'none';
+    title.textContent = 'Enterprise Login';
+  }
+}
+
+function registerNewSaaSClient() {
+  const companyName = document.getElementById('reg-company-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value.trim();
+  const cropFocus = document.getElementById('reg-crop-focus').value;
+  const plan = document.getElementById('reg-plan').value;
+  
+  if (!companyName || !email || !password) {
+    showToast('Setup Required', 'Please fill in all organization credentials.', 'danger');
+    return;
+  }
+  
+  showToast('Creating Workspace', 'Provisioning database resources and loading crop models...', 'info');
+  
+  fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      company_name: companyName,
+      email: email,
+      crop_focus: cropFocus,
+      plan: plan
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // Store company name as logged-in user
+        loggedInUserName = data.company_name;
+        
+        // Update chat greeting
+        const greetingEl = document.getElementById('copilot-initial-greeting');
+        if (greetingEl) {
+          greetingEl.textContent = 'Hello ' + data.company_name + '! 👋 Welcome to your new Terriva workspace. Ask me about your ' + data.crop_focus + ' fields, NPK recommendations, or irrigation targets.';
+        }
+        
+        // Update user cards and configurations in frontend
+        const avatarStr = companyName.substring(0, 2).toUpperCase();
+        
+        // Update sidebar user card
+        document.querySelector('.sidebar-footer .user-avatar').textContent = avatarStr;
+        document.querySelector('.sidebar-footer .user-info h4').textContent = companyName;
+        document.querySelector('.sidebar-footer .user-info p').textContent = plan;
+        
+        // Update setting roles table
+        const rolesBody = document.querySelector('#tab-settings .field-table tbody');
+        if (rolesBody) {
+          rolesBody.innerHTML = `
+            <tr>
+              <td>${email}</td>
+              <td>Tenant Owner (${plan})</td>
+              <td>Active</td>
+            </tr>
+          `;
+        }
+        
+        // Load the new tenant-specific fields
+        loadFieldsTable();
+        
+        // Transition straight to the workspace dashboard!
+        showView('dashboard-view');
+        showToast('Workspace Created', `Welcome ${companyName}! Crop models for ${cropFocus} compiled.`, 'success');
+        
+        // Fly map to the new fields!
+        setTimeout(() => {
+          if (map && data.fields.length > 0) {
+            drawFieldsOnMap();
+            map.flyTo(data.fields[0].coordinates[0], 14);
+            toggleMobileSimulator();
+          }
+        }, 1000);
+      }
+    });
+}
+
+
+// ========================================== 
+// 5. Founder / SaaS Admin God Mode Logic
+// ========================================== 
+let adminTerminalInterval = null;
+
+function startAdminTerminalSimulator() {
+  const term = document.getElementById('admin-terminal-logs');
+  if(!term) return;
+  
+  if(adminTerminalInterval) clearInterval(adminTerminalInterval);
+  
+  const tenants = ['alex-fresh-exports.com', 'delta-sugar-corp.eg', 'beheira-farms-coop', 'cairo-citrus.com'];
+  const endpoints = ['GET /api/fields', 'POST /api/fields/register', 'POST /api/ai/chat', 'POST /api/digital-twin/simulate'];
+  
+  adminTerminalInterval = setInterval(() => {
+    const randomTenant = tenants[Math.floor(Math.random() * tenants.length)];
+    const randomEndpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+    const time = new Date().toLocaleTimeString();
+    
+    term.innerHTML += '<div>[' + time + '] API: ' + randomTenant + ' [' + randomEndpoint + '] -> 200 OK</div>';
+    term.scrollTop = term.scrollHeight;
+    
+    if(term.children.length > 25) {
+      term.removeChild(term.firstChild);
+    }
+  }, 2200);
+}
+
+function triggerModelRetrain() {
+  showToast('Model Orchestrator', 'Initializing GPU training sequence on ResNet-v4...', 'info');
+  
+  let pct = 0;
+  const modal = document.getElementById('modal-overlay');
+  const mTitle = document.getElementById('modal-title');
+  const mBody = document.getElementById('modal-body');
+
+  mTitle.textContent = 'AI Model Training Fleet';
+  mBody.innerHTML = '<div style="padding:20px; text-align:center;"><h4 id="train-pct">Epoch 1/5: 0% complete</h4><div style="background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden; height:12px; margin-top:15px; border:1px solid var(--border-color);"><div id="train-progress-bar" style="background:linear-gradient(90deg, #f59e0b, var(--primary)); width:0%; height:100%; transition:width 0.3s;"></div></div></div>';
+  modal.style.display = 'flex';
+  
+  const timer = setInterval(() => {
+    pct += 10;
+    document.getElementById('train-progress-bar').style.width = pct + '%';
+    document.getElementById('train-pct').textContent = 'Epoch ' + Math.min(5, Math.floor(pct/20)+1) + '/5: ' + pct + '% complete';
+    
+    if(pct >= 100) {
+      clearInterval(timer);
+      setTimeout(() => {
+        mBody.innerHTML = '<div style="text-align:center; padding:15px;"><i class="fa-solid fa-microchip" style="font-size:36px; color:#f59e0b; margin-bottom:15px;"></i><h4>Retraining Completed!</h4><p style="font-size:12px; color:var(--text-secondary); margin-top:5px;">Inference accuracy increased to 95.1%.</p><button class="primary-btn" onclick="closeModal()" style="margin-top:20px; justify-content:center; width:100%;">Return to Dashboard</button></div>';
+      }, 500);
+    }
+  }, 400);
+}
+
+function saveSystemSettings() {
+  const geminiKey = document.getElementById('input-gemini-key').value.trim();
+  const apiBase = (window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+  
+  fetch(apiBase + '/api/settings/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gemini_api_key: geminiKey })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        showToast('Settings Saved', 'System configuration updated successfully.', 'success');
+        loadSystemSettings();
+      } else {
+        showToast('Settings Failure', 'Failed to update system settings.', 'danger');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Settings Error', 'Unable to reach backend settings API.', 'danger');
+    });
+}
+
+function loadSystemSettings() {
+  const apiBase = (window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+  const inputEl = document.getElementById('input-gemini-key');
+  if(!inputEl) return;
+  
+  fetch(apiBase + '/api/settings')
+    .then(res => res.json())
+    .then(data => {
+      if(data.gemini_api_key) {
+        inputEl.value = data.gemini_api_key;
+      }
+    })
+    .catch(err => console.warn("Failed to load settings from server:", err));
+}

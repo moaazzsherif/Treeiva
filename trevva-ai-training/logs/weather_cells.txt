@@ -1,0 +1,20 @@
+Cell 0 (code): # Pipeline Configuration RUN_MODE = "production"  # "test" or "production" TEST_SAMPLE_SIZE = 10 MAX_WORKERS = 4 CHUNK_S
+Cell 1 (markdown): # !pip -q install geopandas rasterio rioxarray pystac-client planetary-computer odc-stac shapely pyproj xarray folium le
+Cell 2 (code): import geopandas as gpd import pandas as pd import numpy as np  from shapely.geometry import Point  import rasterio impo
+Cell 3 (code): import os  folders = [     "../data",     "../data/raw",     "../data/processed",     "../data/features",     "../data/m
+Cell 4 (code): catalog = pystac_client.Client.open(     "https://planetarycomputer.microsoft.com/api/stac/v1",     modifier=planetary_c
+Cell 5 (markdown): # # collections = catalog.get_collections()  # # for c in collections:     # # print(c.id)    print("Skipping collection
+Cell 6 (markdown): from shapely.geometry import Point  lon = 31.083 lat = 30.563  point = Point(lon, lat)  buffer = point.buffer(0.001)  ge
+Cell 7 (markdown): **=================================================================================**
+Cell 8 (markdown): # !pip -q install cdsapi xarray netCDF4   
+Cell 9 (markdown): # url: https://cds.climate.copernicus.eu/api # key: 006b1498-1c8f-40c7-b903-cfa0e43acdd8   
+Cell 10 (markdown): import os  token = "006b1498-1c8f-40c7-b903-cfa0e43acdd8"  with open(os.path.expanduser("~/.cdsapirc"), "w") as f:     f
+Cell 11 (markdown): import cdsapi  client = cdsapi.Client() print("Connected Successfully")   
+Cell 12 (markdown): import cdsapi  client = cdsapi.Client()  print("Connected")   
+Cell 13 (markdown): import cdsapi  client = cdsapi.Client()  client.retrieve(     "reanalysis-era5-land",     {         "variable": "2m_temp
+Cell 14 (markdown): import cdsapi  client = cdsapi.Client()  # مركز المزرعة lat = 30.563 lon = 31.083  # هامش 0.05 درجة (~5.5 كم) delta = 0.
+Cell 15 (markdown): import xarray as xr  ds = xr.open_dataset("../data/raw/era5/era5.nc")  print(ds) print(ds.data_vars)   
+Cell 16 (markdown): import numpy as np  # Temperature (Kelvin -> Celsius) temperature = ds["t2m"].values - 273.15  # Rainfall (meter -> mm) 
+Cell 17 (markdown): wind_speed = np.sqrt(u**2 + v**2)  print("Mean Temperature :", np.mean(temperature)) print("Max Temperature  :", np.max(
+Cell 18 (markdown): features = {      # Weather     "temperature_mean": float(ds.t2m.mean()-273.15),     "temperature_max": float(ds.t2m.max
+Cell 19 (code): import os import json import time import glob import datetime import gc import pandas as pd import numpy as np import cd

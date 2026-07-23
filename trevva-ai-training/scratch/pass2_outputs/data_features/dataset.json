@@ -1,0 +1,192 @@
+[
+    {
+        "POINT_ID": 47862690,
+        "Latitude": 47.15023795,
+        "Longitude": 16.13421178,
+        "Survey_Date": "06-07-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_47862690.tif",
+            "s1": "data/features/image_patches/s1/s1_47862690.tif",
+            "dem": "data/features/image_patches/dem/dem_47862690.tif"
+        },
+        "Labels": {
+            "Nitrogen": 1.1,
+            "SOC": 12.4,
+            "Clay": 24.9,
+            "Sand": 25.4,
+            "Silt": 49.8,
+            "pH": 4.81
+        }
+    },
+    {
+        "POINT_ID": 47882704,
+        "Latitude": 47.27427248,
+        "Longitude": 16.17535859,
+        "Survey_Date": "06-07-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_47882704.tif",
+            "s1": "data/features/image_patches/s1/s1_47882704.tif",
+            "dem": "data/features/image_patches/dem/dem_47882704.tif"
+        },
+        "Labels": {
+            "Nitrogen": 1.3,
+            "SOC": 16.7,
+            "Clay": 25.4,
+            "Sand": 34.6,
+            "Silt": 40.0,
+            "pH": 4.93
+        }
+    },
+    {
+        "POINT_ID": 47982688,
+        "Latitude": 47.1232602,
+        "Longitude": 16.28969291,
+        "Survey_Date": "02-06-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_47982688.tif",
+            "s1": "data/features/image_patches/s1/s1_47982688.tif",
+            "dem": "data/features/image_patches/dem/dem_47982688.tif"
+        },
+        "Labels": {
+            "Nitrogen": 3.1,
+            "SOC": 47.5,
+            "Clay": 27.9,
+            "Sand": 25.7,
+            "Silt": 46.4,
+            "pH": 4.85
+        }
+    },
+    {
+        "POINT_ID": 48022702,
+        "Latitude": 47.24569335,
+        "Longitude": 16.35750603,
+        "Survey_Date": "06-07-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48022702.tif",
+            "s1": "data/features/image_patches/s1/s1_48022702.tif",
+            "dem": "data/features/image_patches/dem/dem_48022702.tif"
+        },
+        "Labels": {
+            "Nitrogen": 2.0,
+            "SOC": 28.1,
+            "Clay": 25.9,
+            "Sand": 28.3,
+            "Silt": 45.8,
+            "pH": 5.8
+        }
+    },
+    {
+        "POINT_ID": 48062708,
+        "Latitude": 47.29637182,
+        "Longitude": 16.41678159,
+        "Survey_Date": "05-07-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48062708.tif",
+            "s1": "data/features/image_patches/s1/s1_48062708.tif",
+            "dem": "data/features/image_patches/dem/dem_48062708.tif"
+        },
+        "Labels": {
+            "Nitrogen": 2.2,
+            "SOC": 19.4,
+            "Clay": 29.2,
+            "Sand": 30.5,
+            "Silt": 40.2,
+            "pH": 6.48
+        }
+    },
+    {
+        "POINT_ID": 48122730,
+        "Latitude": 47.48881664,
+        "Longitude": 16.52059488,
+        "Survey_Date": "18-06-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48122730.tif",
+            "s1": "data/features/image_patches/s1/s1_48122730.tif",
+            "dem": "data/features/image_patches/dem/dem_48122730.tif"
+        },
+        "Labels": {
+            "Nitrogen": 2.0,
+            "SOC": 18.0,
+            "Clay": 26.417391304347824,
+            "Sand": 35.38695652173913,
+            "Silt": 38.19565217391305,
+            "pH": 6.81
+        }
+    },
+    {
+        "POINT_ID": 48202738,
+        "Latitude": 47.5541021,
+        "Longitude": 16.63555874,
+        "Survey_Date": "18-06-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48202738.tif",
+            "s1": "data/features/image_patches/s1/s1_48202738.tif",
+            "dem": "data/features/image_patches/dem/dem_48202738.tif"
+        },
+        "Labels": {
+            "Nitrogen": 1.4,
+            "SOC": 12.5,
+            "Clay": 26.6,
+            "Sand": 35.1,
+            "Silt": 38.2,
+            "pH": 6.37
+        }
+    },
+    {
+        "POINT_ID": 48222780,
+        "Latitude": 47.92869563,
+        "Longitude": 16.71115772,
+        "Survey_Date": "21-05-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48222780.tif",
+            "s1": "data/features/image_patches/s1/s1_48222780.tif",
+            "dem": "data/features/image_patches/dem/dem_48222780.tif"
+        },
+        "Labels": {
+            "Nitrogen": 2.1,
+            "SOC": 22.9,
+            "Clay": 22.5,
+            "Sand": 30.9,
+            "Silt": 46.6,
+            "pH": 7.98
+        }
+    },
+    {
+        "POINT_ID": 48342774,
+        "Latitude": 47.86505893,
+        "Longitude": 16.8638522,
+        "Survey_Date": "26-06-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48342774.tif",
+            "s1": "data/features/image_patches/s1/s1_48342774.tif",
+            "dem": "data/features/image_patches/dem/dem_48342774.tif"
+        },
+        "Labels": {
+            "Nitrogen": 2.9,
+            "SOC": 29.1,
+            "Clay": 24.6,
+            "Sand": 36.7,
+            "Silt": 38.7,
+            "pH": 8.09
+        }
+    },
+    {
+        "POINT_ID": 48442784,
+        "Latitude": 47.94615773,
+        "Longitude": 17.00926007,
+        "Survey_Date": "11-06-18",
+        "Image_Path": {
+            "s2": "data/features/image_patches/s2/s2_48442784.tif",
+            "s1": "data/features/image_patches/s1/s1_48442784.tif",
+            "dem": "data/features/image_patches/dem/dem_48442784.tif"
+        },
+        "Labels": {
+            "Nitrogen": 1.6,
+            "SOC": 14.4,
+            "Clay": 29.1,
+            "Sand": 25.2,
+            "Silt": 45.7,
+            "pH": 7.84
+        }
+    }
+]

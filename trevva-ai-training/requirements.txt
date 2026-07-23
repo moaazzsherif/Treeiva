@@ -1,0 +1,15 @@
+geopandas
+pandas
+numpy
+shapely
+rasterio
+rioxarray
+planetary-computer
+pystac-client
+odc-stac
+matplotlib
+cdsapi
+xarray
+pyproj
+requests
+beautifulsoup4
