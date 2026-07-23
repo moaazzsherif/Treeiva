@@ -1515,21 +1515,27 @@ function toggleLoginRegister(showRegister) {
 }
 
 function registerNewSaaSClient() {
-  let companyName = document.getElementById('reg-company-name').value.trim();
-  let email = document.getElementById('reg-email').value.trim();
-  let password = document.getElementById('reg-password').value.trim();
-  const cropFocus = document.getElementById('reg-crop-focus').value || 'Wheat';
-  const plan = document.getElementById('reg-plan').value || 'Enterprise Agronomy';
+  let companyName = document.getElementById('reg-company-name') ? document.getElementById('reg-company-name').value.trim() : '';
+  let email = document.getElementById('reg-email') ? document.getElementById('reg-email').value.trim() : '';
+  let password = document.getElementById('reg-password') ? document.getElementById('reg-password').value.trim() : '';
   
-  if (!companyName) companyName = 'Delta Fresh Farms';
-  if (!email) email = 'ahmed@delta-farms.com';
+  let fieldName = document.getElementById('reg-field-name') ? document.getElementById('reg-field-name').value.trim() : '';
+  let areaFeddan = document.getElementById('reg-area-feddan') ? document.getElementById('reg-area-feddan').value : '10';
+  let cropFocus = document.getElementById('reg-crop-focus') ? document.getElementById('reg-crop-focus').value : 'Wheat';
+  let soilType = document.getElementById('reg-soil-type') ? document.getElementById('reg-soil-type').value : 'Clay Loam';
+  let location = document.getElementById('reg-location') ? document.getElementById('reg-location').value.trim() : '';
+
+  if (!companyName) companyName = 'مزارع النوبارية الحديثة';
+  if (!email) email = 'farmer@company.com';
   if (!password) password = 'farm1234';
+  if (!fieldName) fieldName = `${companyName} - أرض 1`;
+  if (!location) location = 'البحيرة - النوبارية';
   
   // Set email value into login-email so enterDashboard can reference it
   const loginEmailInput = document.getElementById('login-email');
   if (loginEmailInput) loginEmailInput.value = email;
   
-  showToast('Creating Workspace', 'Provisioning database resources and loading crop models...', 'info');
+  showToast('جارٍ تسجيل الأرض', `تسجيل أرض [${fieldName}] بمساحة ${areaFeddan} فدان للمحصول ${cropFocus}...`, 'info');
   
   fetch('/api/auth/register', {
     method: 'POST',
@@ -1537,20 +1543,22 @@ function registerNewSaaSClient() {
     body: JSON.stringify({
       company_name: companyName,
       email: email,
+      field_name: fieldName,
+      area_feddan: areaFeddan,
       crop_focus: cropFocus,
-      plan: plan
+      soil_type: soilType,
+      location: location,
+      plan: 'Enterprise Agronomy'
     })
   })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        // Store company name as logged-in user
-        loggedInUserName = data.company_name;
+        loggedInUserName = companyName;
         
-        // Update chat greeting
         const greetingEl = document.getElementById('copilot-initial-greeting');
         if (greetingEl) {
-          greetingEl.textContent = 'Hello ' + data.company_name + '! 👋 Welcome to your new Terriva workspace. Ask me about your ' + data.crop_focus + ' fields, NPK recommendations, or irrigation targets.';
+          greetingEl.textContent = 'أهلاً بك في منصة Terriva الحية! 👋 تم تسجيل حقل [' + fieldName + '] بمساحة ' + areaFeddan + ' فدان. اسألني عن توصيات التسميد بالشكاير أو الري بالمتر المكعب.';
         }
         
         // Update user cards and configurations in frontend

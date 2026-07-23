@@ -71,29 +71,37 @@ router.post('/fields/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/register - SaaS Registration Endpoint
+// POST /api/auth/register - Real Land & Farm Registration Endpoint
 router.post('/auth/register', (req, res) => {
   try {
-    const { company_name, email, crop_focus, plan } = req.body;
+    const { company_name, email, field_name, area_feddan, crop_focus, soil_type, location, plan } = req.body;
     const db = loadLocalDB();
 
-    const companyName = company_name || 'My Farm Workspace';
+    const companyName = company_name || 'المزرعة الجديدة';
+    const fieldName = field_name || `${companyName} - حقل رئيسي`;
     const crop = crop_focus || 'Wheat';
+    const feddans = parseFloat(area_feddan) || 10.0;
+    const areaHa = Math.round((feddans / 2.38) * 10) / 10;
+    const soilType = soil_type || 'Clay Loam';
+    const loc = location || 'البحيرة - النوبارية';
 
     const customField = {
-      id: `${crop.toLowerCase()}-field-1`,
-      name: `${companyName} Primary Field`,
+      id: `field-${Date.now()}`,
+      name: fieldName,
+      company_name: companyName,
       crop: crop,
-      soil_type: crop === 'Potatoes' ? 'Sandy Loam' : 'Clay Loam',
-      moisture: 38.0,
+      soil_type: soilType,
+      location: loc,
+      moisture: Math.round((28 + Math.random() * 20) * 10) / 10,
       ndvi: 0.68,
       organic_matter: 2.8,
-      clay_ratio: 30.0,
-      silt_ratio: 40.0,
-      sand_ratio: 30.0,
-      area_ha: 15.0,
+      clay_ratio: soilType.includes('Clay') ? 45.0 : 20.0,
+      silt_ratio: 35.0,
+      sand_ratio: soilType.includes('Sandy') ? 60.0 : 20.0,
+      area_feddan: feddans,
+      area_ha: areaHa,
       coordinates: [[30.829, 30.640], [30.832, 30.642], [30.830, 30.652], [30.824, 30.648]],
-      history: [{ date: new Date().toISOString().split('T')[0], event: 'Registered', desc: `Workspace created for ${companyName}` }]
+      history: [{ date: new Date().toISOString().split('T')[0], event: 'تسجيل المزرعة', desc: `تم تسجيل أرض [${fieldName}] بمساحة ${feddans} فدان في منطقة ${loc}` }]
     };
 
     db.fields = [customField];
@@ -105,7 +113,8 @@ router.post('/auth/register', (req, res) => {
       email: email,
       crop_focus: crop,
       plan: plan || 'Enterprise Agronomy',
-      field: customField
+      field: customField,
+      fields: [customField]
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
