@@ -245,12 +245,13 @@ function switchTab(tabId, element) {
 
 // 2FA login simulator
 function goTo2FA() {
-  const email = document.getElementById('login-email').value;
-  if (!email) {
-    showToast('Input Required', 'Please enter a valid email address.', 'danger');
-    return;
+  const emailInput = document.getElementById('login-email');
+  if (emailInput && !emailInput.value.trim()) {
+    emailInput.value = 'ahmed@delta-farms.com';
   }
   document.querySelector('.login-step-1').style.display = 'none';
+  const regStep = document.querySelector('.login-register');
+  if (regStep) regStep.style.display = 'none';
   document.querySelector('.login-step-2').style.display = 'block';
   showToast('Verification Sent', '2FA security code dispatched.', 'info');
 }
@@ -1514,16 +1515,19 @@ function toggleLoginRegister(showRegister) {
 }
 
 function registerNewSaaSClient() {
-  const companyName = document.getElementById('reg-company-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-password').value.trim();
-  const cropFocus = document.getElementById('reg-crop-focus').value;
-  const plan = document.getElementById('reg-plan').value;
+  let companyName = document.getElementById('reg-company-name').value.trim();
+  let email = document.getElementById('reg-email').value.trim();
+  let password = document.getElementById('reg-password').value.trim();
+  const cropFocus = document.getElementById('reg-crop-focus').value || 'Wheat';
+  const plan = document.getElementById('reg-plan').value || 'Enterprise Agronomy';
   
-  if (!companyName || !email || !password) {
-    showToast('Setup Required', 'Please fill in all organization credentials.', 'danger');
-    return;
-  }
+  if (!companyName) companyName = 'Delta Fresh Farms';
+  if (!email) email = 'ahmed@delta-farms.com';
+  if (!password) password = 'farm1234';
+  
+  // Set email value into login-email so enterDashboard can reference it
+  const loginEmailInput = document.getElementById('login-email');
+  if (loginEmailInput) loginEmailInput.value = email;
   
   showToast('Creating Workspace', 'Provisioning database resources and loading crop models...', 'info');
   
