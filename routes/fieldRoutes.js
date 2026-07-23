@@ -71,6 +71,47 @@ router.post('/fields/register', async (req, res) => {
   }
 });
 
+// POST /api/auth/register - SaaS Registration Endpoint
+router.post('/auth/register', (req, res) => {
+  try {
+    const { company_name, email, crop_focus, plan } = req.body;
+    const db = loadLocalDB();
+
+    const companyName = company_name || 'My Farm Workspace';
+    const crop = crop_focus || 'Wheat';
+
+    const customField = {
+      id: `${crop.toLowerCase()}-field-1`,
+      name: `${companyName} Primary Field`,
+      crop: crop,
+      soil_type: crop === 'Potatoes' ? 'Sandy Loam' : 'Clay Loam',
+      moisture: 38.0,
+      ndvi: 0.68,
+      organic_matter: 2.8,
+      clay_ratio: 30.0,
+      silt_ratio: 40.0,
+      sand_ratio: 30.0,
+      area_ha: 15.0,
+      coordinates: [[30.829, 30.640], [30.832, 30.642], [30.830, 30.652], [30.824, 30.648]],
+      history: [{ date: new Date().toISOString().split('T')[0], event: 'Registered', desc: `Workspace created for ${companyName}` }]
+    };
+
+    db.fields = [customField];
+    saveLocalDB(db);
+
+    res.json({
+      success: true,
+      company_name: companyName,
+      email: email,
+      crop_focus: crop,
+      plan: plan || 'Enterprise Agronomy',
+      field: customField
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/analyze
 router.post('/analyze', async (req, res) => {
   try {
