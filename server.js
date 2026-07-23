@@ -16,13 +16,27 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '.')));
+
+// Serve static assets with explicit MIME types
+app.use(express.static(path.join(__dirname, '.'), {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
 
 // Mount API Routes
 app.use('/api', fieldRoutes);
 
-// Fallback static serve for Frontend SPA
+// Fallback static serve for Frontend
 app.get('*', (req, res) => {
+  if (req.path.includes('.')) {
+    return res.sendFile(path.join(__dirname, req.path));
+  }
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
