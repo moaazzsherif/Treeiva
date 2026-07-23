@@ -261,41 +261,63 @@ function resetLogin() {
   document.querySelector('.login-step-1').style.display = 'block';
 }
 
+function selectPresetAccount(email) {
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  if (emailInput) emailInput.value = email;
+  if (passInput) passInput.value = '123';
+}
+
 function enterDashboard() {
   const emailInput = document.getElementById('login-email');
-  const email = emailInput ? emailInput.value : '';
+  const passwordInput = document.getElementById('login-password');
+  const email = emailInput ? emailInput.value.trim() : 'moaaz@terriva.com';
+  const password = passwordInput ? passwordInput.value.trim() : '123';
   const adminLi = document.querySelector('.admin-only');
   
-  if (email === 'moaazshrif246@gmail.com') {
-    loggedInUserName = 'Moaaz';
-    if (adminLi) adminLi.style.display = 'block';
-    try { startAdminTerminalSimulator(); } catch(e) { console.log('Admin terminal init skipped'); }
-    showToast('Founder Access Granted', 'SaaS God Mode console activated.', 'warning');
-  } else if (email) {
-    loggedInUserName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    if (adminLi) adminLi.style.display = 'none';
-    showToast('Access Granted', `Welcome ${loggedInUserName}! Workspace unlocked.`, 'success');
-  } else {
-    loggedInUserName = 'Guest Farmer';
-  }
-  
-  // Update sidebar avatar initials
-  const userAvatar = document.querySelector('.user-avatar');
-  if (userAvatar && loggedInUserName) {
-    const parts = loggedInUserName.split(' ');
-    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : loggedInUserName.substring(0, 2).toUpperCase();
-    userAvatar.textContent = initials;
-  }
-  
-  // Update chat greeting with user name
-  const greeting = 'Hello ' + loggedInUserName + '! 👋 I am your AI Agri-Assistant. Ask me anything about your farm fields, recommendations, or carbon credits.';
-  const greetingEl = document.getElementById('copilot-initial-greeting');
-  if (greetingEl) {
-    greetingEl.textContent = greeting;
-  }
-  
-  showView('dashboard-view');
-  setTimeout(() => { toggleMobileSimulator(); }, 800);
+  // Call backend login API
+  fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  })
+    .then(res => res.json())
+    .then(data => {
+      loggedInUserName = data.user_name || email.split('@')[0];
+      const company = data.company || 'مزرعتي الخاصة';
+      const userField = data.field || null;
+      
+      if (email.includes('moaaz') && adminLi) adminLi.style.display = 'block';
+      else if (adminLi) adminLi.style.display = 'none';
+      
+      showToast('تم تسجيل الدخول', `أهلاً بك يا ${loggedInUserName}! تم فتح مساحة عمل ${company}.`, 'success');
+
+      // Update sidebar user avatar and user info
+      const userAvatar = document.querySelector('.sidebar-footer .user-avatar');
+      if (userAvatar) {
+        userAvatar.textContent = loggedInUserName.substring(0, 2).toUpperCase();
+      }
+      
+      const userInfoH4 = document.querySelector('.sidebar-footer .user-info h4');
+      if (userInfoH4) userInfoH4.textContent = loggedInUserName;
+      
+      const userInfoP = document.querySelector('.sidebar-footer .user-info p');
+      if (userInfoP) userInfoP.textContent = company;
+
+      // Update AI Assistant Chatbot greeting
+      const greetingEl = document.getElementById('copilot-initial-greeting');
+      if (greetingEl && userField) {
+        greetingEl.textContent = `أهلاً بك يا ${loggedInUserName}! 👋 تم تحميل ${userField.name} (${userField.area_feddan || 10} فدان ${userField.crop_ar || userField.crop}). اسألني عن توصيات التسميد بالشكاير أو الري بالمتر المكعب.`;
+      }
+
+      loadFieldsTable();
+      showView('dashboard-view');
+      setTimeout(() => { toggleMobileSimulator(); }, 800);
+    })
+    .catch(err => {
+      loggedInUserName = email.split('@')[0];
+      showView('dashboard-view');
+    });
 }
 
 function logout() {

@@ -34,6 +34,33 @@ router.get('/fields', async (req, res) => {
   }
 });
 
+// POST /api/auth/login - Multi-User Login Endpoint
+router.post('/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const db = loadLocalDB();
+    
+    const user = (db.users || []).find(u => u.email.toLowerCase() === (email || '').toLowerCase()) || {
+      name: (email || 'مزارع جديد').split('@')[0],
+      email: email,
+      company: 'مزرعتي الخاصة'
+    };
+    
+    // Find user's specific field
+    const userField = (db.fields || []).find(f => f.user_email === email) || db.fields[0];
+    
+    res.json({
+      success: true,
+      user_name: user.name,
+      email: user.email,
+      company: user.company,
+      field: userField
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/fields/register
 router.post('/fields/register', async (req, res) => {
   try {
