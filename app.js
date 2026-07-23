@@ -304,6 +304,21 @@ function enterDashboard() {
       const userInfoP = document.querySelector('.sidebar-footer .user-info p');
       if (userInfoP) userInfoP.textContent = company;
 
+      // Update Overview Dashboard stat cards reactively with user's land data
+      if (userField) {
+        const statArea = document.getElementById('stat-total-area-desc');
+        if (statArea) statArea.textContent = `${userField.area_feddan || 10} فدان مساحة المزرعة الكلية`;
+        
+        const statMoisture = document.getElementById('stat-moisture-val');
+        if (statMoisture) statMoisture.textContent = `${userField.moisture || 35.0}%`;
+        
+        const statFields = document.getElementById('stat-total-fields-val');
+        if (statFields) statFields.textContent = `1 حقل نشط (${userField.crop_ar || userField.crop})`;
+
+        const weatherWidget = document.querySelector('.weather-widget span');
+        if (weatherWidget) weatherWidget.textContent = `${userField.location || 'البحيرة - النوبارية'} • 32°C • مشمس`;
+      }
+
       // Run live AI inference for this user's specific field to dynamically update recommendations
       if (userField) {
         fetch('/api/analyze', {
