@@ -261,19 +261,29 @@ function resetLogin() {
 }
 
 function enterDashboard() {
-  const email = document.getElementById('login-email').value;
+  const emailInput = document.getElementById('login-email');
+  const email = emailInput ? emailInput.value : '';
   const adminLi = document.querySelector('.admin-only');
   
-  // Extract user display name — founder override first
   if (email === 'moaazshrif246@gmail.com') {
     loggedInUserName = 'Moaaz';
     if (adminLi) adminLi.style.display = 'block';
     try { startAdminTerminalSimulator(); } catch(e) { console.log('Admin terminal init skipped'); }
     showToast('Founder Access Granted', 'SaaS God Mode console activated.', 'warning');
-  } else {
+  } else if (email) {
     loggedInUserName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     if (adminLi) adminLi.style.display = 'none';
-    showToast('Access Granted', 'Decentralized workspace session unlocked.', 'success');
+    showToast('Access Granted', `Welcome ${loggedInUserName}! Workspace unlocked.`, 'success');
+  } else {
+    loggedInUserName = 'Guest Farmer';
+  }
+  
+  // Update sidebar avatar initials
+  const userAvatar = document.querySelector('.user-avatar');
+  if (userAvatar && loggedInUserName) {
+    const parts = loggedInUserName.split(' ');
+    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : loggedInUserName.substring(0, 2).toUpperCase();
+    userAvatar.textContent = initials;
   }
   
   // Update chat greeting with user name
