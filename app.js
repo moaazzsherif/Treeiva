@@ -304,6 +304,20 @@ function enterDashboard() {
       const userInfoP = document.querySelector('.sidebar-footer .user-info p');
       if (userInfoP) userInfoP.textContent = company;
 
+      // Run live AI inference for this user's specific field to dynamically update recommendations
+      if (userField) {
+        fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userField)
+        })
+          .then(res => res.json())
+          .then(aiData => {
+            updateRecommendationsView(aiData);
+          })
+          .catch(e => console.log('AI analyze update error:', e));
+      }
+
       // Update AI Assistant Chatbot greeting
       const greetingEl = document.getElementById('copilot-initial-greeting');
       if (greetingEl && userField) {

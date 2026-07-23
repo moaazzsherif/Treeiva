@@ -38,84 +38,83 @@
   ],
   "fields": [
     {
-      "id": "field-moaaz",
-      "user_email": "moaaz@terriva.com",
-      "owner_name": "معاذ شريف",
+      "id": "field-1784807877668",
       "name": "مزرعة معاذ شريف - أرض المانجو والنخيل",
+      "company_name": "مزرعة معاذ شريف - أرض المانجو والنخيل",
       "crop": "Mango",
-      "crop_ar": "مانجو ونخيل تمر",
-      "soil_type": "Sandy Loam",
+      "soil_type": "Clay Loam",
       "location": "البحيرة - النوبارية",
-      "moisture": 24.5,
-      "ndvi": 0.72,
-      "organic_matter": 1.8,
-      "clay_ratio": 20,
-      "silt_ratio": 25,
-      "sand_ratio": 55,
-      "area_feddan": 25.0,
-      "area_ha": 10.5,
-      "coordinates": [[30.829, 30.640], [30.832, 30.642], [30.830, 30.652], [30.824, 30.648]],
-      "history": [{"date": "2026-07-23", "event": "تجهيز المزرعة", "desc": "تم تسجيل 25 فدان مانجو ونخيل لمعاذ شريف"}]
-    },
-    {
-      "id": "field-wafaa",
-      "user_email": "wafaa@terriva.com",
-      "owner_name": "وفاء أحمد",
-      "name": "أرض وفاء أحمد - حقول الفراولة والعنب",
-      "crop": "Strawberry",
-      "crop_ar": "فراولة وعنب",
-      "soil_type": "Clay Loam",
-      "location": "القليوبية - طوخ",
-      "moisture": 36.0,
-      "ndvi": 0.78,
-      "organic_matter": 3.1,
-      "clay_ratio": 40,
-      "silt_ratio": 35,
-      "sand_ratio": 25,
-      "area_feddan": 15.0,
-      "area_ha": 6.3,
-      "coordinates": [[30.450, 31.180], [30.454, 31.185], [30.452, 31.192], [30.446, 31.188]],
-      "history": [{"date": "2026-07-23", "event": "تجهيز المزرعة", "desc": "تم تسجيل 15 فدان فراولة وعنب لوفاء أحمد"}]
-    },
-    {
-      "id": "field-menna",
-      "user_email": "menna@terriva.com",
-      "owner_name": "منة الله",
-      "name": "حقول منة الله - أرض القمح والذرة الشاملة",
-      "crop": "Wheat",
-      "crop_ar": "قمح وذرة",
-      "soil_type": "Clay Loam",
-      "location": "الشرقية - الزقازيق",
-      "moisture": 42.0,
-      "ndvi": 0.81,
-      "organic_matter": 3.5,
+      "moisture": 39.8,
+      "ndvi": 0.68,
+      "organic_matter": 2.8,
       "clay_ratio": 45,
-      "silt_ratio": 40,
-      "sand_ratio": 15,
-      "area_feddan": 40.0,
-      "area_ha": 16.8,
-      "coordinates": [[30.580, 31.500], [30.585, 31.508], [30.582, 31.515], [30.575, 31.507]],
-      "history": [{"date": "2026-07-23", "event": "تجهيز المزرعة", "desc": "تم تسجيل 40 فدان قمح وذرة لمنة الله"}]
+      "silt_ratio": 35,
+      "sand_ratio": 20,
+      "area_feddan": 25,
+      "area_ha": 10.5,
+      "coordinates": [
+        [
+          30.829,
+          30.64
+        ],
+        [
+          30.832,
+          30.642
+        ],
+        [
+          30.83,
+          30.652
+        ],
+        [
+          30.824,
+          30.648
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-23",
+          "event": "تسجيل المزرعة",
+          "desc": "تم تسجيل أرض [مزرعة معاذ شريف - أرض المانجو والنخيل] بمساحة 25 فدان في منطقة البحيرة - النوبارية"
+        }
+      ]
     },
     {
-      "id": "field-makram",
-      "user_email": "makram@terriva.com",
-      "owner_name": "مكرم محمد",
-      "name": "مزارع مكرم محمد - حقول البطاطس والموالح",
-      "crop": "Potato",
-      "crop_ar": "بطاطس وموالح",
-      "soil_type": "Silt Clay",
-      "location": "المنوفية - مدينة السادات",
-      "moisture": 39.0,
-      "ndvi": 0.75,
-      "organic_matter": 2.9,
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 36,
+      "ndvi": 0.46,
+      "organic_matter": 2,
       "clay_ratio": 35,
-      "silt_ratio": 45,
-      "sand_ratio": 20,
-      "area_feddan": 30.0,
-      "area_ha": 12.6,
-      "coordinates": [[30.380, 30.520], [30.385, 30.526], [30.382, 30.534], [30.375, 30.528]],
-      "history": [{"date": "2026-07-23", "event": "تجهيز المزرعة", "desc": "تم تسجيل 30 فدان بطاطس وموالح لمكرم محمد"}]
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.478889343883687,
+          31.195621955647365
+        ],
+        [
+          30.478889343883687,
+          31.201621955647365
+        ],
+        [
+          30.472889343883686,
+          31.201621955647365
+        ],
+        [
+          30.472889343883686,
+          31.195621955647365
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-23",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
     }
   ]
 }
