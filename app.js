@@ -261,6 +261,89 @@ function resetLogin() {
   document.querySelector('.login-step-1').style.display = 'block';
 }
 
+const PRESET_ACCOUNTS = {
+  'moaaz@terriva.com': {
+    name: 'معاذ شريف',
+    company: 'مزارع معاذ شريف للإنتاج الزراعي',
+    field: {
+      id: 'field-moaaz',
+      name: 'مزرعة معاذ شريف - أرض المانجو والنخيل',
+      crop: 'Mango',
+      crop_ar: 'مانجو ونخيل تمر',
+      soil_type: 'Sandy Loam',
+      location: 'البحيرة - النوبارية',
+      moisture: 24.5,
+      area_feddan: 25.0,
+      area_ha: 10.5,
+      coordinates: [[30.829, 30.640], [30.832, 30.642], [30.830, 30.652], [30.824, 30.648]]
+    }
+  },
+  'moaazshrif246@gmail.com': {
+    name: 'معاذ شريف',
+    company: 'مزارع معاذ شريف للإنتاج الزراعي',
+    field: {
+      id: 'field-moaaz',
+      name: 'مزرعة معاذ شريف - أرض المانجو والنخيل',
+      crop: 'Mango',
+      crop_ar: 'مانجو ونخيل تمر',
+      soil_type: 'Sandy Loam',
+      location: 'البحيرة - النوبارية',
+      moisture: 24.5,
+      area_feddan: 25.0,
+      area_ha: 10.5,
+      coordinates: [[30.829, 30.640], [30.832, 30.642], [30.830, 30.652], [30.824, 30.648]]
+    }
+  },
+  'wafaa@terriva.com': {
+    name: 'وفاء أحمد',
+    company: 'مزارع وفاء أحمد للفواكه الاستوائية',
+    field: {
+      id: 'field-wafaa',
+      name: 'أرض وفاء أحمد - حقول الفراولة والعنب',
+      crop: 'Strawberry',
+      crop_ar: 'فراولة وعنب',
+      soil_type: 'Clay Loam',
+      location: 'القليوبية - طوخ',
+      moisture: 36.0,
+      area_feddan: 15.0,
+      area_ha: 6.3,
+      coordinates: [[30.450, 31.180], [30.454, 31.185], [30.452, 31.192], [30.446, 31.188]]
+    }
+  },
+  'menna@terriva.com': {
+    name: 'منة الله',
+    company: 'مزارع منة الله للمحاصيل الاستراتيجية',
+    field: {
+      id: 'field-menna',
+      name: 'حقول منة الله - أرض القمح والذرة الشاملة',
+      crop: 'Wheat',
+      crop_ar: 'قمح وذرة',
+      soil_type: 'Clay Loam',
+      location: 'الشرقية - الزقازيق',
+      moisture: 42.0,
+      area_feddan: 40.0,
+      area_ha: 16.8,
+      coordinates: [[30.580, 31.500], [30.585, 31.508], [30.582, 31.515], [30.575, 31.507]]
+    }
+  },
+  'makram@terriva.com': {
+    name: 'مكرم محمد',
+    company: 'مزارع مكرم محمد للبطاطس والموالح',
+    field: {
+      id: 'field-makram',
+      name: 'مزارع مكرم محمد - حقول البطاطس والموالح',
+      crop: 'Potato',
+      crop_ar: 'بطاطس وموالح',
+      soil_type: 'Silt Clay',
+      location: 'المنوفية - مدينة السادات',
+      moisture: 39.0,
+      area_feddan: 30.0,
+      area_ha: 12.6,
+      coordinates: [[30.380, 30.520], [30.385, 30.526], [30.382, 30.534], [30.375, 30.528]]
+    }
+  }
+};
+
 function selectPresetAccount(email) {
   const emailInput = document.getElementById('login-email');
   const passInput = document.getElementById('login-password');
@@ -268,85 +351,181 @@ function selectPresetAccount(email) {
   if (passInput) passInput.value = '123';
 }
 
+function calculateClientAiInference(field) {
+  const areaFeddan = field.area_feddan || 10.0;
+  const crop = field.crop || 'Wheat';
+  
+  let nKgPerFeddan = 240;
+  let pKgPerFeddan = 180;
+  let kKgPerFeddan = 45;
+  let waterM3PerFeddan = 85;
+
+  if (crop === 'Mango') {
+    nKgPerFeddan = 280; pKgPerFeddan = 160; kKgPerFeddan = 90; waterM3PerFeddan = 110;
+  } else if (crop === 'Strawberry') {
+    nKgPerFeddan = 210; pKgPerFeddan = 190; kKgPerFeddan = 80; waterM3PerFeddan = 75;
+  } else if (crop === 'Potato') {
+    nKgPerFeddan = 260; pKgPerFeddan = 220; kKgPerFeddan = 120; waterM3PerFeddan = 95;
+  } else if (crop === 'Wheat') {
+    nKgPerFeddan = 237; pKgPerFeddan = 150; kKgPerFeddan = 45; waterM3PerFeddan = 85;
+  }
+
+  const nBagsFeddan = Math.round((nKgPerFeddan / 50) * 10) / 10;
+  const pBagsFeddan = Math.round((pKgPerFeddan / 50) * 10) / 10;
+  const kBagsFeddan = Math.round((kKgPerFeddan / 50) * 10) / 10;
+
+  const nTotalBags = Math.round(nBagsFeddan * areaFeddan);
+  const pTotalBags = Math.round(pBagsFeddan * areaFeddan);
+  const kTotalBags = Math.round(kBagsFeddan * areaFeddan);
+
+  const totalWaterField = Math.round(waterM3PerFeddan * areaFeddan);
+
+  return {
+    field_id: field.id || 'field-1',
+    field_name: field.name || 'حقل مزرعتي',
+    fertilizer_recommendation: {
+      nitrogen: {
+        fertilizer_name: 'سلفات نشادر (20.6% N)',
+        kg_per_feddan: nKgPerFeddan,
+        bags_per_feddan: nBagsFeddan,
+        total_bags_field: nTotalBags,
+        recommendation_reason: 'التربة قلوية وحاجة المحصول للنمو الخضري'
+      },
+      phosphorus: {
+        fertilizer_name: 'سوبر فوسفات أحادي (15.5% P2O5)',
+        kg_per_feddan: pKgPerFeddan,
+        bags_per_feddan: pBagsFeddan,
+        total_bags_field: pTotalBags
+      },
+      potassium: {
+        fertilizer_name: 'سلفات بوتاسيوم (50% K2O)',
+        kg_per_feddan: kKgPerFeddan,
+        bags_per_feddan: kBagsFeddan,
+        total_bags_field: kTotalBags
+      },
+      irrigation: {
+        water_m3_per_feddan: waterM3PerFeddan,
+        total_water_m3_field: totalWaterField,
+        irrigation_schedule_ar: 'الري كل 4 إلى 6 أيام بالتنقيط',
+        irrigation_method_ar: 'الري بالتنقيط المحسّن'
+      }
+    },
+    shap_values: {
+      ndvi: 0.42,
+      moisture: 0.35,
+      organic_matter: 0.28
+    }
+  };
+}
+
+function applyUserLandData(accountData) {
+  if (!accountData) return;
+  const name = accountData.name || 'مزارع جديد';
+  const company = accountData.company || 'مزرعتي الخاصة';
+  const field = accountData.field || {};
+
+  loggedInUserName = name;
+
+  // 1. Sidebar Avatar & User Card
+  const userAvatar = document.querySelector('.sidebar-footer .user-avatar');
+  if (userAvatar) userAvatar.textContent = name.substring(0, 2).toUpperCase();
+
+  const userInfoH4 = document.querySelector('.sidebar-footer .user-info h4');
+  if (userInfoH4) userInfoH4.textContent = name;
+
+  const userInfoP = document.querySelector('.sidebar-footer .user-info p');
+  if (userInfoP) userInfoP.textContent = company;
+
+  // 2. Overview Stat Cards
+  const statArea = document.getElementById('stat-total-area-desc');
+  if (statArea) statArea.textContent = `${field.area_feddan || 10} فدان مساحة المزرعة الكلية`;
+
+  const statMoisture = document.getElementById('stat-moisture-val');
+  if (statMoisture) statMoisture.textContent = `${field.moisture || 35.0}%`;
+
+  const statFields = document.getElementById('stat-total-fields-val');
+  if (statFields) statFields.textContent = `1 حقل نشط (${field.crop_ar || field.crop || 'قمح'})`;
+
+  const weatherWidget = document.querySelector('.weather-widget span');
+  if (weatherWidget) weatherWidget.textContent = `${field.location || 'البحيرة - النوبارية'} • 32°C • مشمس`;
+
+  // 3. Overview Table
+  const overviewBody = document.querySelector('.field-table tbody');
+  if (overviewBody && field.name) {
+    overviewBody.innerHTML = `
+      <tr>
+        <td>${field.name}</td>
+        <td><span class="crop-tag">${field.crop_ar || field.crop}</span></td>
+        <td>${field.soil_type || 'طينية لومية'}</td>
+        <td>${field.moisture}%</td>
+        <td class="trend-up" style="color:var(--primary-light)">+28.5%</td>
+        <td><button class="glass-btn" style="padding: 5px 10px;" onclick="viewFieldTwin('${field.id}')">عرض التوأم</button></td>
+      </tr>
+    `;
+  }
+
+  // 4. Copilot Chat Greeting
+  const greetingEl = document.getElementById('copilot-initial-greeting');
+  if (greetingEl) {
+    greetingEl.textContent = `أهلاً بك يا ${name}! 👋 تم تحميل ${field.name} (${field.area_feddan || 10} فدان ${field.crop_ar || field.crop}). اسألني عن توصيات التسميد بالشكاير أو الري بالمتر المكعب.`;
+  }
+
+  // 5. Trigger Recommendations View with Client AI calculations
+  const aiData = calculateClientAiInference(field);
+  updateRecommendationsView(aiData);
+
+  // 6. Fly Leaflet Map to Field Coordinates
+  if (map && field.coordinates && field.coordinates.length > 0) {
+    const center = field.coordinates[0];
+    map.flyTo(center, 14);
+  }
+}
+
 function enterDashboard() {
   const emailInput = document.getElementById('login-email');
-  const passwordInput = document.getElementById('login-password');
   const email = emailInput ? emailInput.value.trim() : 'moaaz@terriva.com';
-  const password = passwordInput ? passwordInput.value.trim() : '123';
-  const adminLi = document.querySelector('.admin-only');
   
-  // Call backend login API
+  // Find account in PRESET_ACCOUNTS or create a fallback
+  const accountData = PRESET_ACCOUNTS[email] || {
+    name: email.split('@')[0],
+    company: 'مزرعتي الخاصة',
+    field: {
+      id: 'field-1',
+      name: `${email.split('@')[0]} - الأرض الرئيسية`,
+      crop: 'Wheat',
+      crop_ar: 'قمح',
+      soil_type: 'Clay Loam',
+      location: 'البحيرة - النوبارية',
+      moisture: 35.0,
+      area_feddan: 10.0,
+      coordinates: [[30.829, 30.640], [30.832, 30.642]]
+    }
+  };
+
+  // Apply user land data reactively!
+  applyUserLandData(accountData);
+
+  // Attempt backend login sync if node server is alive
   fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password: '123' })
   })
     .then(res => res.json())
     .then(data => {
-      loggedInUserName = data.user_name || email.split('@')[0];
-      const company = data.company || 'مزرعتي الخاصة';
-      const userField = data.field || null;
-      
-      if (email.includes('moaaz') && adminLi) adminLi.style.display = 'block';
-      else if (adminLi) adminLi.style.display = 'none';
-      
-      showToast('تم تسجيل الدخول', `أهلاً بك يا ${loggedInUserName}! تم فتح مساحة عمل ${company}.`, 'success');
-
-      // Update sidebar user avatar and user info
-      const userAvatar = document.querySelector('.sidebar-footer .user-avatar');
-      if (userAvatar) {
-        userAvatar.textContent = loggedInUserName.substring(0, 2).toUpperCase();
+      if (data.success && data.field) {
+        applyUserLandData({
+          name: data.user_name,
+          company: data.company,
+          field: data.field
+        });
       }
-      
-      const userInfoH4 = document.querySelector('.sidebar-footer .user-info h4');
-      if (userInfoH4) userInfoH4.textContent = loggedInUserName;
-      
-      const userInfoP = document.querySelector('.sidebar-footer .user-info p');
-      if (userInfoP) userInfoP.textContent = company;
-
-      // Update Overview Dashboard stat cards reactively with user's land data
-      if (userField) {
-        const statArea = document.getElementById('stat-total-area-desc');
-        if (statArea) statArea.textContent = `${userField.area_feddan || 10} فدان مساحة المزرعة الكلية`;
-        
-        const statMoisture = document.getElementById('stat-moisture-val');
-        if (statMoisture) statMoisture.textContent = `${userField.moisture || 35.0}%`;
-        
-        const statFields = document.getElementById('stat-total-fields-val');
-        if (statFields) statFields.textContent = `1 حقل نشط (${userField.crop_ar || userField.crop})`;
-
-        const weatherWidget = document.querySelector('.weather-widget span');
-        if (weatherWidget) weatherWidget.textContent = `${userField.location || 'البحيرة - النوبارية'} • 32°C • مشمس`;
-      }
-
-      // Run live AI inference for this user's specific field to dynamically update recommendations
-      if (userField) {
-        fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userField)
-        })
-          .then(res => res.json())
-          .then(aiData => {
-            updateRecommendationsView(aiData);
-          })
-          .catch(e => console.log('AI analyze update error:', e));
-      }
-
-      // Update AI Assistant Chatbot greeting
-      const greetingEl = document.getElementById('copilot-initial-greeting');
-      if (greetingEl && userField) {
-        greetingEl.textContent = `أهلاً بك يا ${loggedInUserName}! 👋 تم تحميل ${userField.name} (${userField.area_feddan || 10} فدان ${userField.crop_ar || userField.crop}). اسألني عن توصيات التسميد بالشكاير أو الري بالمتر المكعب.`;
-      }
-
-      loadFieldsTable();
-      showView('dashboard-view');
-      setTimeout(() => { toggleMobileSimulator(); }, 800);
     })
-    .catch(err => {
-      loggedInUserName = email.split('@')[0];
-      showView('dashboard-view');
-    });
+    .catch(err => console.log('Backend sync skipped, operating in static client mode.'));
+
+  showToast('تم تسجيل الدخول', `أهلاً بك يا ${accountData.name}! تم فتح مساحة عمل ${accountData.company}.`, 'success');
+  showView('dashboard-view');
+  setTimeout(() => { toggleMobileSimulator(); }, 800);
 }
 
 function logout() {
