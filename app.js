@@ -474,50 +474,41 @@ function applyUserLandData(accountData) {
 }
 
 function enterDashboard() {
-  const emailInput = document.getElementById('login-email');
-  const email = emailInput ? emailInput.value.trim() : 'moaaz@terriva.com';
-  
-  // Find account in PRESET_ACCOUNTS or create a fallback
-  const accountData = PRESET_ACCOUNTS[email] || {
-    name: email.split('@')[0],
-    company: 'مزرعتي الخاصة',
-    field: {
-      id: 'field-1',
-      name: `${email.split('@')[0]} - الأرض الرئيسية`,
-      crop: 'Wheat',
-      crop_ar: 'قمح',
-      soil_type: 'Clay Loam',
-      location: 'البحيرة - النوبارية',
-      moisture: 35.0,
-      area_feddan: 10.0,
-      coordinates: [[30.829, 30.640], [30.832, 30.642]]
-    }
-  };
-
-  // Apply user land data reactively!
-  applyUserLandData(accountData);
-
-  // Attempt backend login sync if node server is alive
-  fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: '123' })
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success && data.field) {
-        applyUserLandData({
-          name: data.user_name,
-          company: data.company,
-          field: data.field
-        });
-      }
-    })
-    .catch(err => console.log('Backend sync skipped, operating in static client mode.'));
-
-  showToast('تم تسجيل الدخول', `أهلاً بك يا ${accountData.name}! تم فتح مساحة عمل ${accountData.company}.`, 'success');
+  // Immediately switch view to dashboard!
   showView('dashboard-view');
-  setTimeout(() => { toggleMobileSimulator(); }, 800);
+
+  try {
+    const emailInput = document.getElementById('login-email');
+    const email = (emailInput && emailInput.value.trim()) ? emailInput.value.trim() : 'moaaz@terriva.com';
+    
+    // Find account in PRESET_ACCOUNTS or create a fallback
+    const accountData = PRESET_ACCOUNTS[email] || PRESET_ACCOUNTS['moaaz@terriva.com'];
+
+    // Apply user land data reactively!
+    applyUserLandData(accountData);
+
+    // Attempt backend login sync if node server is alive
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: '123' })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.field) {
+          applyUserLandData({
+            name: data.user_name,
+            company: data.company,
+            field: data.field
+          });
+        }
+      })
+      .catch(err => console.log('Backend sync skipped, operating in static client mode.'));
+
+    showToast('تم تسجيل الدخول', `أهلاً بك يا ${accountData.name}! تم فتح مساحة عمل ${accountData.company}.`, 'success');
+  } catch (err) {
+    console.error('enterDashboard error caught:', err);
+  }
 }
 
 function logout() {

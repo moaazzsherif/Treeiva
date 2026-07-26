@@ -115,6 +115,272 @@
           "desc": "Registered in MERN platform"
         }
       ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 29.1,
+      "ndvi": 0.69,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.47890805246781,
+          31.19550918562231
+        ],
+        [
+          30.47890805246781,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.19550918562231
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-23",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 28.3,
+      "ndvi": 0.42,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.47890805246781,
+          31.19550918562231
+        ],
+        [
+          30.47890805246781,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.19550918562231
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-23",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 44.4,
+      "ndvi": 0.68,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.47890805246781,
+          31.19550918562231
+        ],
+        [
+          30.47890805246781,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.20150918562231
+        ],
+        [
+          30.472908052467808,
+          31.19550918562231
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-23",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 43,
+      "ndvi": 0.61,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.384843544369456,
+          31.15634532992562
+        ],
+        [
+          30.384843544369456,
+          31.16234532992562
+        ],
+        [
+          30.378843544369456,
+          31.16234532992562
+        ],
+        [
+          30.378843544369456,
+          31.15634532992562
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-26",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 42.5,
+      "ndvi": 0.41,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.384911585330073,
+          31.15644764987775
+        ],
+        [
+          30.384911585330073,
+          31.162447649877752
+        ],
+        [
+          30.378911585330073,
+          31.162447649877752
+        ],
+        [
+          30.378911585330073,
+          31.15644764987775
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-26",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "my-local-field",
+      "name": "My Local Field",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 36.2,
+      "ndvi": 0.42,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.3849121877619,
+          31.156461021459297
+        ],
+        [
+          30.3849121877619,
+          31.162461021459297
+        ],
+        [
+          30.378912187761898,
+          31.162461021459297
+        ],
+        [
+          30.378912187761898,
+          31.156461021459297
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-26",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
+    },
+    {
+      "id": "field-delta",
+      "name": "Field Delta",
+      "crop": "Wheat",
+      "soil_type": "Clay Loam",
+      "moisture": 38.5,
+      "ndvi": 0.69,
+      "organic_matter": 2,
+      "clay_ratio": 35,
+      "silt_ratio": 40,
+      "sand_ratio": 25,
+      "area_ha": 5,
+      "coordinates": [
+        [
+          30.387129600501048,
+          31.1578007452942
+        ],
+        [
+          30.387129600501048,
+          31.161800745294197
+        ],
+        [
+          30.38312960050105,
+          31.161800745294197
+        ],
+        [
+          30.38312960050105,
+          31.1578007452942
+        ]
+      ],
+      "history": [
+        {
+          "date": "2026-07-26",
+          "event": "Registered",
+          "desc": "Registered in MERN platform"
+        }
+      ]
     }
   ]
 }

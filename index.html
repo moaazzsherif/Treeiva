@@ -16,7 +16,7 @@
 <body>
 
   <!-- ========================================================================= -->
-  <!-- 1. LANDING PAGE VIEW -->
+  <!-- 1. PUBLIC LANDING PAGE VIEW -->
   <!-- ========================================================================= -->
   <div id="landing-view">
     <nav class="landing-nav">
@@ -31,17 +31,18 @@
         <li><a href="#pricing-section">Pricing</a></li>
         <li><a href="#faq-section">FAQ</a></li>
       </ul>
-      <button class="primary-btn" onclick="showView('login-view')">Launch Dashboard</button>
+      <button class="primary-btn" onclick="enterDashboard()">Launch Dashboard <i class="fa-solid fa-arrow-right"></i></button>
     </nav>
 
     <!-- Hero Section -->
     <header class="landing-hero">
       <div class="hero-content">
-        <h1>GeoAI Decision Platform for Advanced Agriculture</h1>
-        <p>Terriva integrates satellite diagnostics, soil moisture telemetry, and deep learning algorithms to formulate precise recommendations for fertilization, irrigation, and yield improvement.</p>
+        <div class="badge" style="display:inline-block; padding: 6px 12px; background: rgba(139, 155, 73, 0.2); border: 1px solid var(--primary); border-radius: 20px; color: var(--primary-light); font-size: 12px; margin-bottom: 15px;"><i class="fa-solid fa-satellite"></i> AI-POWERED GEOAGRICULTURE PLATFORM</div>
+        <h1>Precision Farming Powered by Satellite Intelligence & AI</h1>
+        <p>Terriva merges Sentinel-2 satellite telemetry with ground soil sensing to eliminate fertilizer waste, optimize every cubic meter of irrigation, and maximize crop yield.</p>
         <div class="hero-buttons">
-          <button class="primary-btn" onclick="showView('login-view')">Enter Prototype <i class="fa-solid fa-arrow-right"></i></button>
-          <button class="glass-btn" onclick="document.getElementById('features-section').scrollIntoView({behavior: 'smooth'})">Explore Features</button>
+          <button class="primary-btn" onclick="enterDashboard()">Start Precision Farming <i class="fa-solid fa-arrow-right"></i></button>
+          <button class="glass-btn" onclick="showView('login-view')">Select Custom Account <i class="fa-solid fa-users"></i></button>
         </div>
       </div>
       <div class="hero-visual">
