@@ -243,14 +243,29 @@ function switchTab(tabId, element) {
   }
 }
 
-// 2FA login simulator (Directly logs in for 1-click smooth UX)
+// 2FA login simulator
 function goTo2FA() {
-  enterDashboard();
+  const emailInput = document.getElementById('login-email');
+  if (emailInput && !emailInput.value.trim()) {
+    emailInput.value = 'moaaz@terriva.com';
+  }
+  const step1 = document.querySelector('.login-step-1');
+  if (step1) step1.style.display = 'none';
+  
+  const regStep = document.querySelector('.login-register');
+  if (regStep) regStep.style.display = 'none';
+  
+  const step2 = document.querySelector('.login-step-2');
+  if (step2) step2.style.display = 'block';
+  
+  showToast('رمز التوثيق 2FA', 'تم إرسال كود التحقق الأمني للهاتف المسجل.', 'info');
 }
 
 function resetLogin() {
-  document.querySelector('.login-step-2').style.display = 'none';
-  document.querySelector('.login-step-1').style.display = 'block';
+  const step2 = document.querySelector('.login-step-2');
+  if (step2) step2.style.display = 'none';
+  const step1 = document.querySelector('.login-step-1');
+  if (step1) step1.style.display = 'block';
 }
 
 const PRESET_ACCOUNTS = {
