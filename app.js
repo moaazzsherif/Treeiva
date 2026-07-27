@@ -905,7 +905,7 @@ function runAISimulation() {
     { pct: 20, title: 'Parsing Sentinel Bands', desc: 'Fetching 10m bands from Sentinel-2 tile archive...' },
     { pct: 50, title: 'Syncing IoT Telemetry', desc: 'Validating moisture and soil EC telemetry signals...' },
     { pct: 85, title: 'Ground Truth Alignment', desc: 'Matching spectroscopy lab data matrices...' },
-    { pct: 100, title: 'Compilation Complete', desc: 'Fusing datasets into decision models...' }
+    { pct: 100, title: 'Compilation Complete', desc: 'All datasets successfully fused into the decision model.' }
   ];
 
   let idx = 0;
@@ -1107,8 +1107,25 @@ function sharePrescriptionWhatsApp() {
   window.open(`https://wa.me/201011068548?text=${msg}`, '_blank');
 }
 
-function printPrescriptionReport() {
+function printPrescriptionReport(event) {
+  if (event && event.stopPropagation) {
+    event.stopPropagation();
+  }
   window.print();
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('rest-api-key');
+  const icon = document.getElementById('rest-api-key-eye');
+  if (input) {
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (icon) icon.className = 'fa-solid fa-eye-slash';
+    } else {
+      input.type = 'password';
+      if (icon) icon.className = 'fa-solid fa-eye';
+    }
+  }
 }
 
 // Digital Twin Canvas rendering
