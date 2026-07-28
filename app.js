@@ -269,6 +269,27 @@ function resetLogin() {
 }
 
 const PRESET_ACCOUNTS = {
+  'banha@terriva.com': {
+    name: 'مزرعة بنها والقليوبية',
+    company: 'مزارع بنها الحديثة (Sentinel-2 L2A)',
+    field: {
+      id: 'field-banha',
+      name: 'مزرعة بنها - القليوبية (Sentinel-2 L2A)',
+      crop: 'Wheat',
+      crop_ar: 'قمح وموالح بنها',
+      soil_type: 'Clay Loam',
+      location: 'القليوبية - بنها',
+      moisture: 38.5,
+      area_feddan: 10.0,
+      area_ha: 4.2,
+      coordinates: [
+        [30.462, 31.182],
+        [30.465, 31.186],
+        [30.460, 31.190],
+        [30.457, 31.185]
+      ]
+    }
+  },
   'moaaz@terriva.com': {
     name: 'معاذ شريف',
     company: 'مزارع معاذ شريف للإنتاج الزراعي',
@@ -494,10 +515,10 @@ function enterDashboard() {
 
   try {
     const emailInput = document.getElementById('login-email');
-    const email = (emailInput && emailInput.value.trim()) ? emailInput.value.trim() : 'moaaz@terriva.com';
+    const email = (emailInput && emailInput.value.trim()) ? emailInput.value.trim() : 'banha@terriva.com';
     
     // Find account in PRESET_ACCOUNTS or create a fallback
-    const accountData = PRESET_ACCOUNTS[email] || PRESET_ACCOUNTS['moaaz@terriva.com'];
+    const accountData = PRESET_ACCOUNTS[email] || PRESET_ACCOUNTS['banha@terriva.com'];
 
     // Apply user land data reactively!
     applyUserLandData(accountData);
