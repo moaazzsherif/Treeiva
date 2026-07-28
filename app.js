@@ -752,6 +752,24 @@ function onTimelineSliderChange(val) {
 
 let LOCAL_FIELDS = [
   {
+    id: "field-banha",
+    name: "مزرعة بنها - القليوبية (Sentinel-2 L2A)",
+    crop: "Wheat",
+    crop_ar: "قمح وموالح بنها",
+    soil_type: "Clay Loam",
+    moisture: 38.5,
+    ndvi: 0.74,
+    organic_matter: 2.9,
+    area_feddan: 10.0,
+    area_ha: 4.2,
+    coordinates: [
+      [30.462, 31.182],
+      [30.465, 31.186],
+      [30.460, 31.190],
+      [30.457, 31.185]
+    ]
+  },
+  {
     id: "field-moaaz",
     name: "مزرعة معاذ شريف - أرض المانجو والنخيل",
     crop: "Mango",
