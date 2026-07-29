@@ -19,10 +19,10 @@ let activeMapLayer = 'base';
 let charts = {};
 let twinAnimationId = null;
 let currentTwinField = 'field-alpha';
-let deviceLat = 30.8252; // Default Beheira lat
-let deviceLon = 30.6483; // Default Beheira lon
-let deviceCity = "Beheira, EG";
-let deviceTemp = "32";
+let deviceLat = 30.4600; // Default Banha lat
+let deviceLon = 31.1750; // Default Banha lon
+let deviceCity = "Banha, Qalyubiyya, EG";
+let deviceTemp = "35";
 let activeFieldIdForAnalysis = 'field-alpha';
 let loggedInUserName = 'Moaaz';
 let weatherForecastData = null;
@@ -689,39 +689,66 @@ function initLeafletMap() {
   }, 200);
 }
 
-// === Real Copernicus Sentinel-2 NDVI Overlay ===
+// === Real Copernicus Sentinel-2 Overlays ===
 let ndviOverlay = null;
-const BANHA_NDVI_BOUNDS = [[30.445, 31.170], [30.475, 31.200]]; // Real bbox from Sentinel Hub
+let trueColorOverlay = null;
+const BANHA_BOUNDS = [[30.40, 31.10], [30.52, 31.25]]; // 15km x 13km around Banha
+const BANHA_CENTER = [30.46, 31.175];
 const BANHA_NDVI_IMAGE = 'banha_ndvi_real.png';
+const BANHA_TCI_IMAGE = 'banha_satellite_true_color.png';
 
-function toggleNdviOverlay(show) {
+function toggleSatelliteOverlays(layer) {
   if (!map) return;
-  if (show) {
+
+  // Remove both overlays first
+  if (ndviOverlay) map.removeLayer(ndviOverlay);
+  if (trueColorOverlay) map.removeLayer(trueColorOverlay);
+
+  if (layer === 'ndvi') {
     if (!ndviOverlay) {
-      ndviOverlay = L.imageOverlay(BANHA_NDVI_IMAGE, BANHA_NDVI_BOUNDS, {
-        opacity: 0.75,
-        interactive: true
+      ndviOverlay = L.imageOverlay(BANHA_NDVI_IMAGE, BANHA_BOUNDS, {
+        opacity: 0.85,
+        interactive: true,
+        zIndex: 500
       });
       ndviOverlay.bindPopup(`
-        <div style="font-family: var(--font-body); color:#2c3518; padding: 8px; min-width: 220px;">
+        <div style="font-family: var(--font-body); color:#2c3518; padding: 8px; min-width: 240px;">
           <h4 style="font-weight: 700; margin-bottom: 8px;">🛰️ Sentinel-2 L2A — NDVI حقيقي</h4>
           <p style="font-size:12px;"><b>القمر:</b> Sentinel-2A (ESA Copernicus)</p>
           <p style="font-size:12px;"><b>التاريخ:</b> 28 يوليو 2026</p>
-          <p style="font-size:12px;"><b>الموقع:</b> بنها - القليوبية</p>
+          <p style="font-size:12px;"><b>الموقع:</b> بنها - القليوبية (15×13 كم)</p>
+          <p style="font-size:12px;"><b>الدقة:</b> 10 متر/بكسل</p>
           <p style="font-size:12px;"><b>السحب:</b> 0.01%</p>
           <hr style="margin: 6px 0; border:none; border-top:1px solid #ddd;">
-          <p style="font-size:11px;"><b style="color:#1a9850;">🟢 أخضر غامق:</b> نبات صحي (NDVI > 0.6)</p>
-          <p style="font-size:11px;"><b style="color:#fee08b;">🟡 أصفر:</b> تربة/محصول ضعيف</p>
-          <p style="font-size:11px;"><b style="color:#c0392b;">🔴 أحمر:</b> مياه / مباني</p>
+          <p style="font-size:11px;"><b style="color:#1e7a28;">🟢 أخضر غامق:</b> محاصيل كثيفة صحية</p>
+          <p style="font-size:11px;"><b style="color:#8cc83c;">🟢 أخضر فاتح:</b> نبات معتدل</p>
+          <p style="font-size:11px;"><b style="color:#e6b43c;">🟠 برتقالي:</b> تربة عارية / مباني</p>
+          <p style="font-size:11px;"><b style="color:#1e64b4;">🔵 أزرق:</b> مياه (نهر النيل)</p>
         </div>
       `);
     }
     ndviOverlay.addTo(map);
-    map.flyToBounds(BANHA_NDVI_BOUNDS, { maxZoom: 14, duration: 1.5 });
-  } else {
-    if (ndviOverlay) {
-      map.removeLayer(ndviOverlay);
+    map.flyToBounds(BANHA_BOUNDS, { maxZoom: 13, duration: 1.2 });
+
+  } else if (layer === 'satellite') {
+    if (!trueColorOverlay) {
+      trueColorOverlay = L.imageOverlay(BANHA_TCI_IMAGE, BANHA_BOUNDS, {
+        opacity: 0.9,
+        interactive: true,
+        zIndex: 500
+      });
+      trueColorOverlay.bindPopup(`
+        <div style="font-family: var(--font-body); color:#2c3518; padding: 8px; min-width: 220px;">
+          <h4 style="font-weight: 700; margin-bottom: 8px;">🛰️ Sentinel-2 L2A — صورة حقيقية</h4>
+          <p style="font-size:12px;"><b>النوع:</b> True Color (RGB)</p>
+          <p style="font-size:12px;"><b>التاريخ:</b> 28 يوليو 2026</p>
+          <p style="font-size:12px;"><b>الموقع:</b> بنها - القليوبية</p>
+          <p style="font-size:12px;"><b>الدقة:</b> 10 متر/بكسل</p>
+        </div>
+      `);
     }
+    trueColorOverlay.addTo(map);
+    map.flyToBounds(BANHA_BOUNDS, { maxZoom: 13, duration: 1.2 });
   }
 }
 
@@ -729,8 +756,14 @@ function renderPolygonsOnMap(fields) {
   if (!map || !layersGroup) return;
   layersGroup.clearLayers();
 
-  // Toggle real NDVI satellite overlay
-  toggleNdviOverlay(activeMapLayer === 'ndvi');
+  // Toggle real satellite overlays (NDVI or True Color)
+  if (activeMapLayer === 'ndvi') {
+    toggleSatelliteOverlays('ndvi');
+  } else if (activeMapLayer === 'base') {
+    toggleSatelliteOverlays('satellite');
+  } else {
+    toggleSatelliteOverlays('none');
+  }
 
   (fields || []).forEach(field => {
     if (!field.coordinates || field.coordinates.length === 0) return;
